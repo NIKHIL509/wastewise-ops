@@ -28,6 +28,8 @@ a{color:var(--green2)}
 .top .ttl{font-weight:700;font-size:16px;line-height:1.1}
 .top .sub{font-size:11px;opacity:.8}
 .top .sp{flex:1}
+body.gate #nav{display:none}
+.gate-card{max-width:440px;margin:18px auto;text-align:center}.gate-card .lg{display:flex;gap:14px;justify-content:center;align-items:center;margin-bottom:8px}.gate-card .lg img{width:76px;height:76px;border-radius:14px}.gate-card .lg img.sc{border-radius:50%}.gate-card .i{font-size:18px;text-align:center;letter-spacing:1px}
 .opsw{white-space:nowrap}.opsbig{white-space:nowrap}
 .opsw .cut{display:inline-flex}
 .opsw .cut i{font-style:normal;display:inline-block;overflow:hidden;max-width:1em;white-space:pre}
@@ -257,10 +259,10 @@ function applyConfig() {
 
 /* ---------- login ---------- */
 function logout(silent) {
-  S.token = S.role = S.name = null;
-  try { sessionStorage.clear(); } catch (e) {}
+  S.token = S.role = S.name = null; S.guest = false;
+  try { sessionStorage.clear(); localStorage.removeItem('ww_hh'); } catch (e) {}
   renderHeader();
-  if (!silent) route();
+  if (!silent) { if (location.hash && location.hash !== '#/') location.hash = '#/'; else route(); }
 }
 const ROLE_LABEL = { driver: ['Driver', 'चालक'], mrf: ['MRF operator', 'एमआरएफ ऑपरेटर'], incharge: ['District in-charge', 'ज़िला प्रभारी'], admin: ['Admin', 'एडमिन'] };
 function needLogin(roles) {
@@ -398,11 +400,13 @@ const NAV = [
   ['#/incharge', 'In-charge', 'प्रभारी', null],
   ['#/admin', 'Admin', 'एडमिन', null],
 ];
+function hhId() { try { return localStorage.getItem('ww_hh') || ''; } catch (e) { return ''; } }
+function hasIdentity() { if (S.token || hhId()) return true; try { return sessionStorage.getItem('ww_guest') === '1'; } catch (e) { return !!S.guest; } }
 function renderHeader() {
   const who = S.token ? `${esc(S.name || '')} · ${esc(T(ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][0] : S.role, ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][1] : S.role))}` : '';
   $('.top').innerHTML = `<img src="logo.png" alt="WasteWise Daporijo"><div style="min-width:0"><div class="ttl">WasteWise ${opsWord(!S.opsShown)}</div><div class="sub">${esc(SCHOOL.name)} · Daporijo</div></div><div class="sp"></div><img class="school" src="school.png" alt="" onerror="this.style.display='none'">
     <button class="chip" id="bLang">${LANG === 'mix' ? 'EN + हिं' : LANG === 'en' ? 'English' : 'हिन्दी'}</button>
-    ${S.token ? `<button class="chip" id="bOut">${who} ✕</button>` : ''}`;
+    ${S.token ? `<button class="chip" id="bOut">${who} ✕</button>` : (hhId() ? `<button class="chip" id="bOut">${esc(hhId())} ✕</button>` : '')}`;
   $('#bLang').onclick = cycleLang;
   if ($('#bOut')) $('#bOut').onclick = () => { logout(); };
   if (!S.opsTimer) S.opsTimer = setTimeout(() => { S.opsShown = true; }, 5000);
@@ -424,6 +428,9 @@ async function route() {
   S.view = key;
   renderHeader();
   const v = $('#view'); v.innerHTML = `<p class="muted" style="padding:30px;text-align:center">${esc(T('Loading…', 'लोड हो रहा है…'))}</p>`;
+  const gated = !hasIdentity() && key !== 'screen';
+  document.body.classList.toggle('gate', gated);
+  if (gated) { renderHeader(); renderGate(v); return; }
   try {
     if (!S.st) await loadStatic();
     applyConfig();
@@ -437,6 +444,53 @@ window.addEventListener('hashchange', route);
 window.addEventListener('load', () => { renderHeader(); route(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.view) { /* timers resume by themselves */ } });
 let stopScanner = null;
+
+/* ---------- login gate (first screen) ---------- */
+const HOME_OF = { driver: '#/driver', mrf: '#/mrf', incharge: '#/incharge', admin: '#/admin' };
+function renderGate(v) {
+  v.innerHTML = `<div class="card gate-card">
+    <div class="lg"><img src="logo.png" alt="WasteWise"><img class="sc" src="school.png" alt="" onerror="this.style.display='none'"></div>
+    <div class="opsbig" style="font-size:clamp(22px,7vw,30px)">WasteWise ${opsWord(!S.opsShown)}</div>
+    <div class="muted" style="margin:4px 0 14px">${esc(SCHOOL.name)}, Daporijo</div>
+    <h2 style="margin:0 0 4px">${esc(T('Log in', 'लॉगिन'))}</h2>
+    <p class="muted" style="margin:0 0 10px">${esc(T('Staff: enter your passcode. Citizens: enter your Household ID, like HH-013.', 'स्टाफ: अपना पासकोड डालें। नागरिक: अपनी हाउसहोल्ड आईडी डालें, जैसे HH-013।'))}</p>
+    <input class="i" id="gCode" autocomplete="off" autocapitalize="characters" placeholder="${esc(T('Passcode or Household ID', 'पासकोड या हाउसहोल्ड आईडी'))}">
+    <div class="row" style="margin-top:12px;justify-content:center"><button class="btn" id="gGo">${esc(T('Log in', 'लॉगिन'))}</button></div>
+    <p id="gMsg" class="muted" style="margin:10px 0 0"></p>
+    <div id="gReg" class="hide" style="margin-top:6px"><button class="btn" id="gNew2">${esc(T('Register and continue', 'पंजीकरण करें और आगे बढ़ें'))}</button></div>
+    <hr style="border:0;border-top:1px solid #dfe6e0;margin:16px 0">
+    <div class="muted" style="margin-bottom:8px">${esc(T('New here? Citizens can register in one minute.', 'नए हैं? नागरिक एक मिनट में पंजीकरण कर सकते हैं।'))}</div>
+    <button class="btn alt" id="gNew">${esc(T('I am a citizen · Register', 'मैं नागरिक हूँ · पंजीकरण'))}</button>
+  </div>`;
+  const inp = $('#gCode');
+  inp.oninput = () => { inp.style.webkitTextSecurity = /^[A-Za-z]/.test(inp.value) ? 'none' : 'disc'; };
+  inp.style.webkitTextSecurity = 'disc';
+  const asGuest = () => { S.guest = true; try { sessionStorage.setItem('ww_guest', '1'); } catch (e) {} location.hash = '#/citizen'; route(); };
+  $('#gNew').onclick = asGuest; $('#gNew2').onclick = asGuest;
+  const go = async () => {
+    const code = inp.value.trim(); if (!code) return;
+    $('#gMsg').textContent = T('Checking…', 'जाँच हो रही है…'); $('#gReg').classList.add('hide');
+    try {
+      if (/^HH-\d+$/i.test(code)) {
+        const d = await api('household', { id: code.toUpperCase() }, { timeout: 15000 });
+        if (d.found) { try { localStorage.setItem('ww_hh', code.toUpperCase()); } catch (e) {} location.hash = '#/citizen'; route(); return; }
+      } else {
+        const d = await api('login', { role: '', passcode: code }, { timeout: 15000 });
+        if (d.valid) {
+          S.token = d.token; S.role = d.role; S.name = d.name;
+          try { sessionStorage.setItem('ww_tok', d.token); sessionStorage.setItem('ww_role', d.role); sessionStorage.setItem('ww_name', d.name); } catch (e) {}
+          const to = HOME_OF[d.role] || '#/';
+          if (location.hash === to) route(); else location.hash = to;
+          return;
+        }
+      }
+      $('#gMsg').textContent = T('Not registered. Register as a citizen to continue.', 'पंजीकृत नहीं हैं। आगे बढ़ने के लिए नागरिक के रूप में पंजीकरण करें।');
+      $('#gReg').classList.remove('hide');
+    } catch (e) { $('#gMsg').textContent = e.message; }
+  };
+  $('#gGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
+  setTimeout(() => inp.focus(), 50);
+}
 /* ============================ HOME ============================ */
 function qrImg(text, cell) {
   const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createDataURL(cell || 5, 2);
