@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B5E20">
+<title>WasteWise Ops · Daporijo</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+:root{
+  --green:#1B5E20; --green2:#2E7D32; --green3:#E8F5E9; --ink:#17231A; --ink2:#4A5A4E; --line:#DCE5DD;
+  --bg:#F3F6F3; --card:#fff; --wet:#2E7D32; --dry:#0277BD; --mixed:#78909C; --warn:#F9A825; --bad:#C62828; --good:#2E7D32;
+  --r:14px; --shadow:0 1px 2px rgba(20,40,25,.06),0 4px 14px rgba(20,40,25,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.4;min-height:100vh}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--green2)}
+.hide{display:none!important}
+/* header */
+.top{position:sticky;top:0;z-index:50;background:var(--green);color:#fff;display:flex;align-items:center;gap:10px;padding:8px 14px;padding-top:max(8px,env(safe-area-inset-top))}
+.top img{width:34px;height:34px;border-radius:8px;background:#fff;object-fit:contain}
+.top .ttl{font-weight:700;font-size:16px;line-height:1.1}
+.top .sub{font-size:11px;opacity:.8}
+.top .sp{flex:1}
+.opsw{white-space:nowrap}.opsbig{white-space:nowrap}
+.opsw .cut{display:inline-flex}
+.opsw .cut i{font-style:normal;display:inline-block;overflow:hidden;max-width:1em;white-space:pre}
+.opsw.done .cut i{max-width:0;opacity:0}
+.opsw.go .cut i{animation:cutl .55s ease forwards;animation-delay:calc(1.6s + var(--d))}
+@keyframes cutl{0%{max-width:1em;opacity:1;transform:none}35%{transform:translateY(-4px) rotate(-10deg)}100%{max-width:0;opacity:0;transform:translateY(-8px)}}
+.opsbig{font-size:clamp(22px,7vw,34px);font-weight:800;letter-spacing:-.5px;line-height:1.1}
+.opscap{opacity:0;animation:fadein .8s ease forwards;animation-delay:3.4s;margin-top:6px;font-size:14px}
+@keyframes fadein{to{opacity:.95}}
+@media (prefers-reduced-motion:reduce){.opsw.go .cut i{animation-duration:.01s;animation-delay:0s}.opscap{animation-delay:0s}}
+.top>div{overflow:hidden}.top .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top img.school{border-radius:50%}
+.foot{max-width:1100px;margin:26px auto 30px;padding:0 14px;text-align:center;font-size:12px;line-height:1.55;color:var(--muted,#5b6b60)}
+body.screenmode .foot{display:none}
+.chip{border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;border-radius:999px;padding:5px 11px;font-size:12.5px}
+.chip:hover{background:rgba(255,255,255,.22)}
+.ribbon{background:#FFF3CD;color:#6B4E00;font-size:12px;text-align:center;padding:4px 10px;border-bottom:1px solid #F0DC9A}
+.nav{display:flex;gap:6px;overflow-x:auto;padding:8px 14px;background:#fff;border-bottom:1px solid var(--line)}
+.nav a{white-space:nowrap;text-decoration:none;color:var(--ink2);padding:6px 12px;border-radius:999px;font-size:13.5px;border:1px solid transparent}
+.nav a.on{background:var(--green3);color:var(--green);border-color:#BFE0C3;font-weight:600}
+main{max-width:1180px;margin:0 auto;padding:14px}
+h2{font-size:19px;margin:2px 0 10px}
+h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--ink2);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sp{flex:1}
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:600;background:var(--green2);color:#fff;min-height:44px}
+.btn:hover{background:var(--green)}
+.btn.alt{background:#fff;color:var(--green);border:1.5px solid var(--green2)}
+.btn.grey{background:#ECEFEC;color:var(--ink)}
+.btn.bad{background:var(--bad)}
+.btn.sm{padding:6px 11px;min-height:34px;font-size:13px;border-radius:9px}
+.btn.big{padding:16px 20px;font-size:17px;border-radius:16px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+label.f{display:block;font-size:12.5px;color:var(--ink2);margin:8px 0 3px}
+input.i,select.i,textarea.i{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;min-height:44px}
+input.i:focus,select.i:focus,textarea.i:focus{outline:2px solid #A5D6A7;border-color:var(--green2)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;min-width:70px;padding:11px 8px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:600}
+.seg button.on{color:#fff;border-color:transparent}
+.seg button.on.wet{background:var(--wet)} .seg button.on.dry{background:var(--dry)} .seg button.on.mixed{background:var(--mixed)}
+.seg button.on.good{background:var(--good)} .seg button.on.partly{background:var(--warn);color:#3b2e00} .seg button.on.poor{background:var(--bad)}
+.tag{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;background:#ECEFEC;color:var(--ink2)}
+.tag.good{background:#DFF2E1;color:#1B5E20}.tag.partly{background:#FFF1C2;color:#7A5900}.tag.poor{background:#FBDADA;color:#8E1B1B}
+.tag.wet{background:#DFF2E1;color:#1B5E20}.tag.dry{background:#DCEFFB;color:#014E7B}.tag.mixed{background:#E7ECEF;color:#37474F}
+.tag.run{background:#DFF2E1;color:#1B5E20}.tag.tomrf{background:#DCEFFB;color:#014E7B}.tag.done{background:#ECEFEC}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--ink2);font-weight:600;background:#F7FAF7;position:sticky;top:0}
+.scroll{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.kpi{padding:12px 14px;border-radius:var(--r);background:#fff;border:1px solid var(--line)}
+.kpi .n{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+.kpi .l{font-size:12px;color:var(--ink2);margin-top:2px}
+.map{height:340px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#E3EAE4}
+.map.tall{height:460px}
+.bar{height:10px;border-radius:999px;background:#E4EAE5;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--green2);border-radius:999px;transition:width .6s}
+.status{border-radius:var(--r);padding:16px;color:#fff;background:linear-gradient(135deg,#2E7D32,#1B5E20)}
+.status.wait{background:linear-gradient(135deg,#546E7A,#37474F)}
+.status.near{background:linear-gradient(135deg,#F9A825,#E08A00);color:#2d2100}
+.status.done{background:linear-gradient(135deg,#0277BD,#014E7B)}
+.status .big{font-size:30px;font-weight:800;line-height:1.1}
+.qrs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qrc{text-align:center;border:2px solid var(--line);border-radius:12px;padding:10px}
+.qrc img{width:100%;max-width:170px;image-rendering:pixelated}
+.qrc.wet{border-color:var(--wet)} .qrc.dry{border-color:var(--dry)}
+.ring{--p:0;width:92px;height:92px;border-radius:50%;background:conic-gradient(var(--green2) calc(var(--p)*1%),#E4EAE5 0);display:grid;place-items:center;flex:none}
+.ring b{background:#fff;width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:21px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#17231A;color:#fff;border-radius:12px;padding:11px 16px;z-index:300;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:14px}
+.toast.err{background:var(--bad)}
+.modal{position:fixed;inset:0;background:rgba(10,25,14,.55);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal .box{background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow:auto}
+@media(min-width:700px){.modal{align-items:center}.modal .box{border-radius:18px}}
+.hero{display:grid;gap:12px}
+.role{display:flex;gap:12px;align-items:center;text-align:left;width:100%;border:1.5px solid var(--line);background:#fff;border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.role:hover{border-color:var(--green2)}
+.role .ic{font-size:30px;width:52px;height:52px;border-radius:14px;background:var(--green3);display:grid;place-items:center;flex:none}
+.role b{display:block;font-size:16px}
+.stops li{list-style:none;display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line)}
+.stops .no{width:26px;height:26px;border-radius:50%;background:var(--green3);color:var(--green);display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.stops li.done .no{background:var(--green2);color:#fff}
+.stops li.cur .no{background:var(--warn);color:#3b2e00}
+.feed li{list-style:none;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.mk{display:grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.truck{font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));transform:translate(-4px,-4px)}
+.leaflet-container{font-family:inherit}
+/* command screen */
+body.screenmode{background:#0C1A10;color:#EAF3EC}
+body.screenmode .top,body.screenmode .nav,body.screenmode .ribbon{display:none}
+body.screenmode main{max-width:none;padding:0}
+.scr{display:grid;grid-template-columns:1.55fr 1fr;grid-template-rows:auto 1fr auto;height:100vh;gap:12px;padding:14px}
+.scr .hd{grid-column:1/-1;display:flex;align-items:center;gap:14px}
+.scr .hd img{width:46px;height:46px;border-radius:10px;background:#fff}
+.scr .hd h1{font-size:26px;letter-spacing:-.3px}
+.scr .live{display:flex;align-items:center;gap:6px;font-weight:700;color:#7CE08A}
+.scr .live i{width:10px;height:10px;border-radius:50%;background:#7CE08A;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.scr .map{height:100%;min-height:0;border:1px solid #234;}
+.scr .side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:hidden}
+.scr .kp{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.scr .kpi{background:#132A1A;border-color:#24422D}
+.scr .kpi .n{font-size:34px;color:#fff} .scr .kpi .l{color:#9DB8A3;font-size:13px}
+.scr .pnl{background:#132A1A;border:1px solid #24422D;border-radius:var(--r);padding:12px}
+.scr .pnl h3{color:#9DB8A3;font-size:13px;text-transform:uppercase;letter-spacing:.8px}
+.scr .tk{padding:8px 0;border-bottom:1px solid #24422D}
+.scr .tk b{font-size:17px}
+.scr .bar{background:#24422D}.scr .bar>i{background:#7CE08A}
+.scr .tick{grid-column:1/-1;background:#132A1A;border:1px solid #24422D;border-radius:var(--r);padding:10px 14px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scr .al{padding:6px 0;color:#FFD27D;font-size:14px}
+.scr .leaflet-container{background:#0f2315}
+.scr .muted{color:#9DB8A3}
+/* print */
+#printArea{display:none}
+@media print{
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block!important}
+  .tagcard{break-inside:avoid;border:2px solid #000;border-radius:10px;padding:10px;margin:0 0 12px;display:flex;gap:14px;align-items:center}
+  .tagcard img{width:34mm;height:34mm}
+  .poster{text-align:center;padding:20mm}
+  .brand{display:flex;align-items:center;gap:10px;justify-content:center;font-size:10pt;margin:0 0 8px}.brand img{width:16mm;height:16mm;border-radius:50%}
+  .foot{display:none}
+  .poster img{width:90mm}
+  .pb{break-after:page}
+}
+.tagcard{display:flex;gap:14px;align-items:center}
+@media(max-width:700px){
+  .scr{grid-template-columns:1fr;height:auto}
+  .scr .map{height:320px}
+}
+</style>
+</head>
+<body>
+<div class="top"></div>
+<div id="ribbon" class="ribbon hide"></div>
+<nav class="nav" id="nav"></nav>
+<main id="view"></main>
+<footer id="foot" class="foot"></footer>
+<div id="modalRoot"></div>
+<div id="printArea"></div>
+<script src="leaflet.js"></script>
+<script src="qrcode.js"></script>
+<script src="html5-qrcode.min.js"></script>
+<script>
+/* =====================================================================
+   WasteWise Ops: front end. Third app of WasteWise Daporijo.
+   Roles: citizen (no login), driver, mrf, incharge, admin. All data comes from the
+   Google Sheet through the Apps Script web app (Code.gs). Real places, routes and
+   households are fed in Admin; nothing is hard-coded here.
+   ===================================================================== */
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAdddasjKly-FWSnodNiXI1YI9XJ6Rx3g7eMdkRM6Uek2Q8yvPeLolMKMT96Bk_O0o/exec';
+const SURVEY_APPS = [
+  { en: 'Survey app 1: households, shops, hostel, dump sites', hi: 'सर्वे ऐप 1: घर, दुकान, हॉस्टल, कचरा स्थल', url: 'https://nikhil509.github.io/wastewise-daporijo/' },
+  { en: 'Survey app 2: road and premises survey', hi: 'सर्वे ऐप 2: सड़क और परिसर सर्वे', url: 'https://nikhil509.github.io/dapo100-survey/' },
+];
+
+const SCHOOL = {
+  name: 'Vivekananda Public School', place: 'Daporijo, Upper Subansiri, Arunachal Pradesh',
+  cbse: 'CBSE Affiliation No. 2230086 · School Code 35085',
+  event: "National Children's Science Congress 2026–27", theme: 'Sub-theme R5: Waste Management',
+  title: 'Project on Solid Waste Segregation (WasteWise Daporijo)',
+  team: 'Yumgam Sorum Tamin · David Pakri Nirin (Class 9)', guide: 'Nikhil Anil',
+};
+const S = { st: null, token: null, role: null, name: null, live: null, paths: {}, timers: [], maps: {}, view: null, hh: null, gen: 0 };
+try { S.token = sessionStorage.getItem('ww_tok'); S.role = sessionStorage.getItem('ww_role'); S.name = sessionStorage.getItem('ww_name'); } catch (e) {}
+let LANG = 'mix';
+try { LANG = localStorage.getItem('ww_lang') || 'mix'; } catch (e) {}
+
+/* ---------- small helpers ---------- */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function T(en, hi) { return LANG === 'en' ? en : LANG === 'hi' ? hi : en + ' · ' + hi; }
+const num = (v, d) => { const n = Number(v); return isFinite(n) ? n : (d || 0); };
+const f1 = n => (Math.round(num(n) * 10) / 10).toFixed(1);
+const rs = n => '₹' + Math.round(num(n)).toLocaleString('en-IN');
+const fmtT = ms => ms ? new Date(ms).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) : '';
+const fmtD = ms => ms ? new Date(ms).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '';
+function toast(msg, err) {
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), err ? 5200 : 2600);
+}
+function setTimer(fn, ms) { const g = S.gen; const id = setInterval(() => { if (g === S.gen) fn(); }, ms); S.timers.push(id); return id; }
+function clearTimers() { S.timers.forEach(clearInterval); S.timers = []; }
+const PLACE = id => (S.st && S.st.places.find(p => p.PlaceID === id)) || null;
+const ROUTE = id => (S.st && S.st.routes.find(r => r.RouteID === id)) || null;
+const VEH = id => (S.st && S.st.vehicles.find(v => v.VehicleID === id)) || null;
+const SERVICE = ['Pickup Point', 'Public Bin', 'Dump Site', 'Market', 'Landmark'];
+function ids(route) { return String(route.StopPlaceIDs || '').split(',').map(s => s.trim()).filter(Boolean); }
+
+/* ---------- backend calls ---------- */
+let cbN = 0;
+function api(action, params, opt) {
+  params = params || {}; opt = opt || {};
+  return new Promise((resolve, reject) => {
+    if (WEB_APP_URL.indexOf('PASTE_YOUR') >= 0) return reject(new Error('The backend URL is not set yet (see README).'));
+    const cb = 'wwcb' + (++cbN) + Date.now().toString(36);
+    const q = new URLSearchParams(Object.assign({ action, callback: cb }, S.token ? { token: S.token } : {}, params));
+    const s = document.createElement('script');
+    const t = setTimeout(() => { done(); reject(new Error('The server is slow or offline.')); }, opt.timeout || 20000);
+    function done() { clearTimeout(t); delete window[cb]; s.remove(); }
+    window[cb] = d => {
+      done();
+      if (d && d.status === 'error') {
+        if (/log in again/i.test(d.message)) { logout(true); }
+        reject(new Error(d.message));
+      } else resolve(d);
+    };
+    s.onerror = () => { done(); reject(new Error('Network error.')); };
+    s.src = WEB_APP_URL + '?' + q.toString();
+    document.head.appendChild(s);
+  });
+}
+function post(action, payload) {
+  return fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(Object.assign({ action, token: S.token }, payload)) });
+}
+async function loadStatic() { S.st = await api('static'); S.paths = {}; applyConfig(); return S.st; }
+function applyConfig() {
+  const r = $('#ribbon');
+  if (S.st && S.st.config.DemoMode) { r.classList.remove('hide'); r.textContent = T('Demo mode: sample trips and weights are simulated. Roads, places and dump sites are real.', 'डेमो मोड: ट्रिप और वज़न नमूना हैं। सड़कें, स्थान और कचरा स्थल असली हैं।'); }
+  else r.classList.add('hide');
+}
+
+/* ---------- login ---------- */
+function logout(silent) {
+  S.token = S.role = S.name = null;
+  try { sessionStorage.clear(); } catch (e) {}
+  renderHeader();
+  if (!silent) route();
+}
+const ROLE_LABEL = { driver: ['Driver', 'चालक'], mrf: ['MRF operator', 'एमआरएफ ऑपरेटर'], incharge: ['District in-charge', 'ज़िला प्रभारी'], admin: ['Admin', 'एडमिन'] };
+function needLogin(roles) {
+  if (S.token && (roles.indexOf(S.role) >= 0)) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const opts = roles.map(r => `<option value="${r}">${esc(T(ROLE_LABEL[r][0], ROLE_LABEL[r][1]))}</option>`).join('');
+    const m = modal(`<h3>${esc(T('Staff login', 'स्टाफ लॉगिन'))}</h3>
+      <label class="f">${esc(T('Role', 'भूमिका'))}</label><select class="i" id="lgRole">${opts}</select>
+      <label class="f">${esc(T('Passcode', 'पासकोड'))}</label><input class="i" id="lgCode" type="password" inputmode="numeric" autocomplete="off">
+      <div class="row" style="margin-top:14px"><button class="btn" id="lgGo">${esc(T('Log in', 'लॉगिन'))}</button><button class="btn grey" id="lgNo">${esc(T('Cancel', 'रद्द करें'))}</button></div>
+      <p class="muted" id="lgMsg" style="margin-top:8px"></p>`);
+    const go = async () => {
+      try {
+        const d = await api('login', { role: $('#lgRole').value, passcode: $('#lgCode').value }, { timeout: 15000 });
+        if (!d.valid) { $('#lgMsg').textContent = T('Wrong passcode.', 'गलत पासकोड।'); return; }
+        S.token = d.token; S.role = d.role; S.name = d.name;
+        try { sessionStorage.setItem('ww_tok', d.token); sessionStorage.setItem('ww_role', d.role); sessionStorage.setItem('ww_name', d.name); } catch (e) {}
+        m.close(); renderHeader(); resolve(true);
+      } catch (e) { $('#lgMsg').textContent = e.message; }
+    };
+    $('#lgGo').onclick = go; $('#lgCode').onkeydown = e => { if (e.key === 'Enter') go(); };
+    $('#lgNo').onclick = () => { m.close(); resolve(false); };
+    setTimeout(() => $('#lgCode') && $('#lgCode').focus(), 50);
+  });
+}
+
+/* ---------- modal ---------- */
+function modal(html) {
+  const el = document.createElement('div'); el.className = 'modal';
+  el.innerHTML = `<div class="box">${html}</div>`;
+  el.addEventListener('mousedown', e => { if (e.target === el) close(); });
+  $('#modalRoot').appendChild(el);
+  function close() { el.remove(); if (el._onclose) el._onclose(); }
+  return { el, close, set onclose(f) { el._onclose = f; } };
+}
+function editor(title, fields, vals) {
+  return new Promise(resolve => {
+    const f = fields.map(fd => {
+      const v = vals && vals[fd.k] != null ? vals[fd.k] : '';
+      let inp;
+      if (fd.type === 'select') inp = `<select class="i" data-k="${fd.k}">${fd.opts.map(o => { const ov = Array.isArray(o) ? o[0] : o, ol = Array.isArray(o) ? o[1] : o; return `<option value="${esc(ov)}" ${String(ov) === String(v) ? 'selected' : ''}>${esc(ol)}</option>`; }).join('')}</select>`;
+      else if (fd.type === 'textarea') inp = `<textarea class="i" rows="3" data-k="${fd.k}">${esc(v)}</textarea>`;
+      else inp = `<input class="i" data-k="${fd.k}" type="${fd.type || 'text'}" ${fd.step ? `step="${fd.step}"` : ''} value="${esc(v)}" ${fd.ro ? 'readonly' : ''}>`;
+      return `<label class="f">${esc(fd.label)}</label>${inp}`;
+    }).join('');
+    const m = modal(`<h3>${esc(title)}</h3>${f}<div class="row" style="margin-top:14px"><button class="btn" id="edOk">${esc(T('Save', 'सेव करें'))}</button><button class="btn grey" id="edNo">${esc(T('Cancel', 'रद्द करें'))}</button></div>`);
+    $('#edOk').onclick = () => { const o = {}; $$('[data-k]', m.el).forEach(e => { o[e.dataset.k] = e.value; }); m.close(); resolve(o); };
+    $('#edNo').onclick = () => { m.close(); resolve(null); };
+  });
+}
+
+/* ---------- geometry ---------- */
+function hav(a, b, c, d) {
+  const R = 6371000, p = Math.PI / 180, dl = (c - a) * p, dg = (d - b) * p;
+  const x = Math.sin(dl / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin(dg / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+function densify(pts, step) {
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], d = hav(a[0], a[1], b[0], b[1]), n = Math.max(1, Math.ceil(d / step));
+    for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
+  }
+  return out;
+}
+function nearestIdx(pts, lat, lng, from) {
+  let bi = from || 0, bd = Infinity;
+  for (let i = from || 0; i < pts.length; i++) { const d = hav(pts[i][0], pts[i][1], lat, lng); if (d < bd) { bd = d; bi = i; } }
+  return bi;
+}
+/* A route as one smooth path with cumulative metres and the index of each stop on it. */
+async function getPath(routeId) {
+  if (S.paths[routeId]) return S.paths[routeId];
+  const r = ROUTE(routeId); if (!r) return null;
+  const stops = ids(r).map(PLACE).filter(Boolean);
+  if (stops.length < 2) return null;
+  let geo = [];
+  try { const d = await api('route', { id: routeId }); geo = d.geometry || []; } catch (e) {}
+  let pts = geo.length > 1 ? geo : stops.map(p => [num(p.Lat), num(p.Lng)]);
+  pts = densify(pts, 20);
+  if (pts.length > 6000) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 6000) === 0);
+  const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + hav(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
+  let prev = 0;
+  const stopGi = stops.map((p, k) => {
+    if (k === 0) { prev = 0; return 0; }
+    if (k === stops.length - 1) { prev = pts.length - 1; return prev; }
+    const g = nearestIdx(pts, num(p.Lat), num(p.Lng), prev); prev = g; return g;
+  });
+  return (S.paths[routeId] = { pts, cum, stopGi, stops, total: cum[cum.length - 1], real: geo.length > 1 });
+}
+function fmtEta(sec) {
+  if (sec < 20) return T('now', 'अभी');
+  if (sec < 100) return Math.round(sec) + T(' sec', ' सेकंड');
+  return Math.round(sec / 60) + T(' min', ' मिनट');
+}
+
+/* ---------- maps ---------- */
+function makeMap(el, opts) {
+  if (!window.L) { el.innerHTML = '<p class="muted" style="padding:20px">Map library missing.</p>'; return null; }
+  const c = S.st.config;
+  const m = L.map(el, { zoomControl: true, attributionControl: true }).setView([c.MapCenterLat, c.MapCenterLng], (opts && opts.zoom) || 15);
+  const dark = opts && opts.dark;
+  L.tileLayer(dark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' + (dark ? ' &copy; CARTO' : '') }).addTo(m);
+  setTimeout(() => { try { if (m._loaded && m._container && m._container.isConnected) m.invalidateSize(); } catch (e) {} }, 150);
+  return m;
+}
+function dot(label, color, size) {
+  size = size || 26;
+  return L.divIcon({ className: '', html: `<div class="mk" style="width:${size}px;height:${size}px;background:${color}">${label}</div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+}
+function placeMarker(p, idx) {
+  const col = { Depot: '#455A64', MRF: '#6A1B9A', 'Pickup Point': '#2E7D32', 'Public Bin': '#EF6C00', 'Dump Site': '#C62828', Market: '#00838F', Landmark: '#5D4037' }[p.Type] || '#2E7D32';
+  const lab = idx != null ? idx : ({ Depot: 'D', MRF: 'M', 'Public Bin': 'B', 'Dump Site': '!' }[p.Type] || '•');
+  return L.marker([num(p.Lat), num(p.Lng)], { icon: dot(lab, col, idx != null ? 28 : 22) }).bindPopup(`<b>${esc(p.Name)}</b><br>${esc(p.Type)}${p.Colony ? ' · ' + esc(p.Colony) : ''}${p.Notes ? '<br>' + esc(p.Notes) : ''}`);
+}
+const truckIcon = () => L.divIcon({ className: '', html: '<div class="truck">🚛</div>', iconSize: [30, 30], iconAnchor: [15, 15] });
+
+/* ---------- language ---------- */
+function setLang(l) { LANG = l; try { localStorage.setItem('ww_lang', l); } catch (e) {} renderHeader(); applyConfig(); route(); }
+function cycleLang() { setLang(LANG === 'mix' ? 'en' : LANG === 'en' ? 'hi' : 'mix'); }
+
+/* ---------- header, footer and nav ---------- */
+function opsWord(anim) {
+  const cut = 'eration'.split('').map((c, i) => `<i style="--d:${((6 - i) * 0.16).toFixed(2)}s">${c}</i>`).join('');
+  return `<span class="opsw ${anim ? 'go' : 'done'}" title="Ops = Operations">Op<span class="cut">${cut}</span>s</span>`;
+}
+function footHtml() {
+  return `<b>${esc(SCHOOL.name)}</b>, ${esc(SCHOOL.place)}<br>${esc(SCHOOL.cbse)}<br>${esc(SCHOOL.event)} · ${esc(SCHOOL.theme)}<br>Team: ${esc(SCHOOL.team)} · Guide teacher: ${esc(SCHOOL.guide)}`;
+}
+const NAV = [
+  ['#/', 'Home', 'होम', null],
+  ['#/citizen', 'Citizen', 'नागरिक', null],
+  ['#/driver', 'Driver', 'चालक', null],
+  ['#/mrf', 'MRF', 'एमआरएफ', null],
+  ['#/incharge', 'In-charge', 'प्रभारी', null],
+  ['#/admin', 'Admin', 'एडमिन', null],
+];
+function renderHeader() {
+  const who = S.token ? `${esc(S.name || '')} · ${esc(T(ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][0] : S.role, ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][1] : S.role))}` : '';
+  $('.top').innerHTML = `<img src="logo.png" alt="WasteWise Daporijo"><div style="min-width:0"><div class="ttl">WasteWise ${opsWord(!S.opsShown)}</div><div class="sub">${esc(SCHOOL.name)} · Daporijo</div></div><div class="sp"></div><img class="school" src="school.png" alt="" onerror="this.style.display='none'">
+    <button class="chip" id="bLang">${LANG === 'mix' ? 'EN + हिं' : LANG === 'en' ? 'English' : 'हिन्दी'}</button>
+    ${S.token ? `<button class="chip" id="bOut">${who} ✕</button>` : ''}`;
+  $('#bLang').onclick = cycleLang;
+  if ($('#bOut')) $('#bOut').onclick = () => { logout(); };
+  if (!S.opsTimer) S.opsTimer = setTimeout(() => { S.opsShown = true; }, 5000);
+  let ft = $('#foot'); if (ft) ft.innerHTML = footHtml();
+  const cur = location.hash || '#/';
+  $('#nav').innerHTML = NAV.map(n => `<a href="${n[0]}" class="${cur === n[0] || (n[0] !== '#/' && cur.indexOf(n[0]) === 0) ? 'on' : ''}">${esc(T(n[1], n[2]))}</a>`).join('');
+}
+
+/* ---------- router ---------- */
+const VIEWS = {};
+async function route() {
+  S.gen++;
+  clearTimers();
+  stopScanner && stopScanner();
+  Object.keys(S.maps).forEach(k => { try { S.maps[k].remove(); } catch (e) {} delete S.maps[k]; });
+  const h = (location.hash || '#/').split('?')[0];
+  const key = h === '#/' ? 'home' : h.replace('#/', '');
+  document.body.classList.toggle('screenmode', key === 'screen');
+  S.view = key;
+  renderHeader();
+  const v = $('#view'); v.innerHTML = `<p class="muted" style="padding:30px;text-align:center">${esc(T('Loading…', 'लोड हो रहा है…'))}</p>`;
+  try {
+    if (!S.st) await loadStatic();
+    applyConfig();
+    const fn = VIEWS[key] || VIEWS.home;
+    await fn(v);
+  } catch (e) {
+    v.innerHTML = `<div class="card"><h3>${esc(T('Could not load', 'लोड नहीं हो सका'))}</h3><p>${esc(e.message)}</p><div class="row" style="margin-top:10px"><button class="btn" onclick="S.st=null;route()">${esc(T('Try again', 'फिर कोशिश करें'))}</button></div></div>`;
+  }
+}
+window.addEventListener('hashchange', route);
+window.addEventListener('load', () => { renderHeader(); route(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.view) { /* timers resume by themselves */ } });
+let stopScanner = null;
+/* ============================ HOME ============================ */
+function qrImg(text, cell) {
+  const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createDataURL(cell || 5, 2);
+}
+VIEWS.home = async v => {
+  const roleBtn = (href, ic, en, hi, d1, d2) => `<button class="role" onclick="location.hash='${href}'"><span class="ic">${ic}</span><span><b>${esc(T(en, hi))}</b><span class="muted">${esc(T(d1, d2))}</span></span></button>`;
+  v.innerHTML = `
+  <div class="hero">
+    <div class="card" style="background:linear-gradient(135deg,#1B5E20,#2E7D32);color:#fff;border:0">
+      <div class="opsbig">WasteWise ${opsWord(true)}</div>
+      <div class="opscap">${esc(T('Ops = Operations. Running waste collection day by day.', 'यानी संचालन: रोज़ का कचरा संग्रह चलाना'))}</div>
+      <h2 style="font-size:22px;margin-top:12px">${esc(T('WasteWise Daporijo: from the household to the MRF', 'वेस्टवाइज दापोरिजो: घर से एमआरएफ तक'))}</h2>
+      <p style="opacity:.92">${esc(T('One loop: a household separates waste, the truck collects and weighs it, the MRF sorts and sells, and everyone sees it live.', 'एक चक्र: घर में कचरा अलग होता है, ट्रक उठाकर तौलता है, एमआरएफ छाँटकर बेचता है, और सब कुछ लाइव दिखता है।'))}</p>
+    </div>
+    <div class="grid g2">
+      ${roleBtn('#/citizen', '🏠', 'Citizen', 'नागरिक', 'Register, get bag QR tags, see the truck coming', 'पंजीकरण, बैग QR टैग, ट्रक की स्थिति')}
+      ${roleBtn('#/driver', '🚛', 'Driver', 'चालक', 'Start trip, scan bags, enter weights', 'ट्रिप शुरू करें, बैग स्कैन करें, वज़न लिखें')}
+      ${roleBtn('#/mrf', '♻️', 'MRF operator', 'एमआरएफ ऑपरेटर', 'Receive loads, sort, see income', 'माल लें, छाँटें, आमदनी देखें')}
+      ${roleBtn('#/incharge', '🗺️', 'District in-charge', 'ज़िला प्रभारी', 'Live map, alerts, smart bins, insights', 'लाइव नक्शा, अलर्ट, स्मार्ट बिन')}
+      ${roleBtn('#/screen', '📽️', 'Command screen', 'कमांड स्क्रीन', 'Full-screen live view for the projector', 'प्रोजेक्टर के लिए पूरी स्क्रीन')}
+      ${roleBtn('#/admin', '⚙️', 'Admin: places and routes', 'एडमिन: स्थान और रास्ते', 'Feed real places, routes and households', 'असली स्थान, रास्ते और घर जोड़ें')}
+    </div>
+    <div class="card">
+      <div class="row" style="align-items:center"><img src="logo.png" alt="" style="width:64px;height:64px;border-radius:12px"><div><h3 style="margin:0">${esc(SCHOOL.title)}</h3><div class="muted">${esc(SCHOOL.name)}, ${esc(SCHOOL.place)}</div><div class="muted">${esc(SCHOOL.event)} · ${esc(SCHOOL.theme)}</div></div><div class="sp"></div><img src="school.png" alt="" style="width:64px;height:64px;border-radius:50%" onerror="this.style.display='none'"></div>
+    </div>
+    <div class="card">
+      <h3>${esc(T('The WasteWise family of 3 apps', 'वेस्टवाइज के 3 ऐप'))}</h3>
+      <p class="muted" style="margin-bottom:8px">${esc(T('This is app 3, the operations app. Apps 1 and 2 collect the survey data.', 'यह ऐप 3 है, संचालन ऐप। ऐप 1 और 2 सर्वे डेटा जमा करते हैं।'))}</p>
+      <div class="row">${SURVEY_APPS.map(a => `<a class="btn alt sm" target="_blank" rel="noopener" href="${a.url}">${esc(T(a.en, a.hi))}</a>`).join('')}</div>
+    </div>
+  </div>`;
+};
+
+/* ============================ CITIZEN ============================ */
+VIEWS.citizen = async v => {
+  let id = null; try { id = localStorage.getItem('ww_hh'); } catch (e) {}
+  if (!id) return citizenStart(v);
+  const d = await api('household', { id });
+  if (!d.found) { try { localStorage.removeItem('ww_hh'); } catch (e) {} return citizenStart(v, true); }
+  return citizenHome(v, d);
+};
+
+function citizenStart(v, lost) {
+  const places = S.st.places.filter(p => p.Type === 'Pickup Point');
+  const groups = {};
+  places.forEach(p => { const g = (p.Colony || 'Other') + (p.RoadID ? ' · ' + p.RoadID : ''); (groups[g] = groups[g] || []).push(p); });
+  const opts = Object.keys(groups).map(g => `<optgroup label="${esc(g)}">${groups[g].map(p => `<option value="${esc(p.PlaceID)}">${esc(p.Name)}</option>`).join('')}</optgroup>`).join('');
+  v.innerHTML = `<div class="grid g2">
+    <div class="card"><h2>${esc(T('I have a bag tag', 'मेरे पास बैग टैग है'))}</h2>
+      ${lost ? `<p class="muted">${esc(T('That household was not found. Try again.', 'यह घर नहीं मिला। फिर कोशिश करें।'))}</p>` : ''}
+      <label class="f">${esc(T('Household ID (example HH-D03)', 'घर की ID (जैसे HH-D03)'))}</label>
+      <input class="i" id="cId" placeholder="HH-D03" autocapitalize="characters">
+      <div class="row" style="margin-top:12px"><button class="btn" id="cGo">${esc(T('Open my household', 'मेरा घर खोलें'))}</button></div>
+    </div>
+    <div class="card"><h2>${esc(T('Register a new household', 'नया घर पंजीकृत करें'))}</h2>
+      <label class="f">${esc(T('Name of household or building', 'घर या भवन का नाम'))}</label><input class="i" id="rLabel" maxlength="60">
+      <label class="f">${esc(T('Nearest pickup point', 'सबसे नज़दीकी पिकअप पॉइंट'))}</label><select class="i" id="rPlace">${opts}</select>
+      <label class="f">${esc(T('People in the household', 'घर में सदस्य'))}</label><input class="i" id="rMem" type="number" min="1" max="30" value="4">
+      <div class="row" style="margin-top:12px"><button class="btn" id="rGo">${esc(T('Register and get my QR tags', 'पंजीकरण करें और QR टैग पाएँ'))}</button></div>
+      <p class="muted" id="rMsg" style="margin-top:8px"></p>
+    </div></div>`;
+  $('#cGo').onclick = () => { const x = $('#cId').value.trim().toUpperCase(); if (!x) return; try { localStorage.setItem('ww_hh', x); } catch (e) {} route(); };
+  $('#rGo').onclick = async () => {
+    const btn = $('#rGo'); btn.disabled = true;
+    try {
+      const d = await api('register', { label: $('#rLabel').value, placeId: $('#rPlace').value, members: $('#rMem').value });
+      try { localStorage.setItem('ww_hh', d.household.HouseholdID); } catch (e) {}
+      toast(T('Registered: ', 'पंजीकृत: ') + d.household.HouseholdID);
+      route();
+    } catch (e) { $('#rMsg').textContent = e.message; btn.disabled = false; }
+  };
+}
+
+function statusView(st) {
+  const cls = { wait: 'wait', coming: '', near: 'near', here: 'near', done: 'done', passed: 'wait' }[st.kind] || '';
+  return `<div class="status ${cls}"><div class="muted" style="color:inherit;opacity:.85">${esc(st.small || '')}</div><div class="big">${esc(st.big)}</div><div style="margin-top:6px;opacity:.95">${esc(st.line || '')}</div>${st.pct != null ? `<div class="bar" style="margin-top:10px;background:rgba(255,255,255,.3)"><i style="width:${st.pct}%;background:#fff"></i></div>` : ''}</div>`;
+}
+
+async function citizenStatus(d, live) {
+  const h = d.household;
+  const trip = live.active.find(t => t.Status === 'Running' && d.routes.indexOf(t.RouteID) >= 0);
+  if (!trip) {
+    const justDone = d.last && d.last.length && (Date.now() - d.last[0].Time) < 6 * 3600 * 1000;
+    if (justDone) return { kind: 'done', small: T('Latest pickup', 'पिछला पिकअप'), big: T('Picked up ✔', 'उठाया गया ✔'), line: T('Thank you for separating your waste.', 'कचरा अलग करने के लिए धन्यवाद।') };
+    return { kind: 'wait', small: T('Truck status', 'ट्रक की स्थिति'), big: T('No truck on the road now', 'अभी कोई ट्रक सड़क पर नहीं'), line: T('Keep wet and dry waste in two bags. You will be told when the truck starts.', 'गीला और सूखा कचरा दो बैग में रखें। ट्रक चलते ही बताया जाएगा।') };
+  }
+  const path = await getPath(trip.RouteID);
+  const k = path.stops.findIndex(p => p.PlaceID === h.PlaceID);
+  const stopGi = path.stopGi[k];
+  const picked = trip.done.indexOf(h.PlaceID + '|' + h.HouseholdID) >= 0;
+  const loc = trip.loc;
+  const gi = loc ? (loc.gi >= 0 ? loc.gi : nearestIdx(path.pts, loc.lat, loc.lng, 0)) : 0;
+  const veh = VEH(trip.VehicleID);
+  const skipped = (live.alerts || []).find(a => a.Type === 'Missed stop' && a.PlaceID === h.PlaceID && a.Time >= trip.StartTime);
+  if (!picked && skipped) return { kind: 'passed', small: T('Truck ', 'ट्रक ') + (veh ? veh.Name : ''), big: T('Your stop was skipped', 'आपका पड़ाव छोड़ा गया'), line: skipped.Message + ' ' + T('Use "Report a problem" if you were ready.', 'अगर आप तैयार थे तो "समस्या बताएँ" दबाएँ।'), trip };
+  if (picked) return { kind: 'done', small: T('Truck ', 'ट्रक ') + (veh ? veh.Name : ''), big: T('Picked up ✔', 'उठाया गया ✔'), line: T('Your bags were collected and weighed.', 'आपके बैग उठाए और तौले गए।'), trip };
+  const dist = path.cum[stopGi] - path.cum[Math.min(gi, path.cum.length - 1)];
+  const spd = loc && loc.spd > 0.5 ? loc.spd : num(S.st.config.AvgSpeedKmh, 20) / 3.6;
+  if (dist <= 40 && gi <= stopGi + 2) return { kind: 'here', small: T('Truck ', 'ट्रक ') + (veh ? veh.Name : ''), big: T('The truck is at your stop', 'ट्रक आपके पिकअप पॉइंट पर है'), line: T('Show your QR bag tag to the driver.', 'ड्राइवर को अपना QR बैग टैग दिखाएँ।'), trip, pct: 100 };
+  if (dist < -40) return { kind: 'passed', small: T('Truck ', 'ट्रक ') + (veh ? veh.Name : ''), big: T('The truck has passed your stop', 'ट्रक आपके पॉइंट से निकल गया'), line: T('Your bags were not scanned. Keep them ready for the next trip.', 'आपके बैग स्कैन नहीं हुए। अगली बार तैयार रखें।'), trip };
+  const sec = dist / spd;
+  const total = Math.max(1, path.cum[stopGi]);
+  const pct = Math.max(2, Math.min(98, Math.round(100 * (1 - dist / total))));
+  return { kind: sec < 120 ? 'near' : 'coming', small: T('Truck ', 'ट्रक ') + (veh ? veh.Name : '') + ' · ' + (ROUTE(trip.RouteID) ? ROUTE(trip.RouteID).Name : ''), big: T('Truck arrives in ', 'ट्रक पहुँचेगा ') + fmtEta(sec), line: Math.round(dist) + T(' m away', ' मीटर दूर'), pct, trip, gi };
+}
+
+function reportDump(h) {
+  const mm = modal(`<h3>${esc(T('Report a new dump site', 'नया कचरा स्थल बताएँ'))}</h3><p class="muted">${esc(T('Tap the map where the garbage is, or use your location.', 'नक्शे पर कचरे की जगह दबाएँ, या अपनी लोकेशन लें।'))}</p><div id="rdMap" class="map" style="height:260px"></div>
+    <label class="f">${esc(T('Short note', 'छोटा नोट'))}</label><input class="i" id="rdNote" maxlength="80" placeholder="${esc(T('example: plastic near the stream', 'जैसे: नाले के पास प्लास्टिक'))}">
+    <div class="row" style="margin-top:10px"><button class="btn grey sm" id="rdGps">📍 ${esc(T('Use my location', 'मेरी लोकेशन'))}</button><div class="sp"></div><button class="btn" id="rdSend">${esc(T('Send report', 'रिपोर्ट भेजें'))}</button><button class="btn grey" id="rdNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="rdMsg"></p>`);
+  const c0 = [num(h.Lat), num(h.Lng)];
+  const rm = makeMap($('#rdMap'), { zoom: 17 }); let pin = null, pt = c0.slice();
+  const put = ll => { pt = [ll.lat !== undefined ? ll.lat : ll[0], ll.lng !== undefined ? ll.lng : ll[1]]; if (pin) pin.setLatLng(pt); else pin = L.marker(pt, { icon: dot('🗑', '#C62828', 30) }).addTo(rm); };
+  if (rm) { rm.setView(c0, 17); put(c0); rm.on('click', e => put(e.latlng)); }
+  $('#rdGps').onclick = () => { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(p => { put([p.coords.latitude, p.coords.longitude]); if (rm) rm.setView(pt, 18); }, () => toast(T('Could not get location. Tap the map.', 'लोकेशन नहीं मिली। नक्शे पर दबाएँ।'), true)); };
+  $('#rdNo').onclick = mm.close;
+  $('#rdSend').onclick = async () => {
+    try { await api('report', { kind: 'dump', lat: pt[0], lng: pt[1], note: $('#rdNote').value }); mm.close(); toast(T('Thank you. The in-charge has been told.', 'धन्यवाद। प्रभारी को बता दिया गया।')); } catch (e) { $('#rdMsg').textContent = e.message; }
+  };
+}
+
+function statsHtml(d) {
+  const sc = d.score;
+  return `      <div class="card" ><h3>${esc(T('My segregation score', 'मेरा अलगाव स्कोर'))}</h3>
+        <div class="row" style="gap:16px"><div class="ring" style="--p:${sc == null ? 0 : sc}"><b>${sc == null ? '–' : sc + '%'}</b></div>
+        <div><div><b>${f1(d.totalKg)} kg</b> ${esc(T('collected so far', 'अब तक उठाया'))}</div><div><b>${f1(d.dryKg)} kg</b> ${esc(T('dry waste', 'सूखा कचरा'))}</div><div class="muted">${d.pickups} ${esc(T('pickups', 'पिकअप'))}</div></div></div>
+        <p class="muted" style="margin-top:8px">${esc(T('Score = how well the bags were separated at pickup (Good 100, Partly 50, Poor 0).', 'स्कोर = पिकअप पर बैग कितने अच्छे अलग थे (अच्छा 100, कुछ 50, खराब 0)।'))}</p></div>
+      <div class="card"><h3>${esc(T('My recent pickups', 'मेरे पिछले पिकअप'))}</h3>
+        ${d.last.length ? `<ul class="feed">${d.last.map(x => `<li>${fmtD(x.Time)} ${fmtT(x.Time)} · <span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span> ${f1(x.WeightKg)} kg · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></li>`).join('')}</ul>` : `<p class="muted">${esc(T('No pickups yet.', 'अभी कोई पिकअप नहीं।'))}</p>`}
+      </div>`;
+}
+
+async function citizenHome(v, d) {
+  const h = d.household;
+  const place = PLACE(h.PlaceID);
+  const wetTxt = `WW|${h.HouseholdID}|Wet`, dryTxt = `WW|${h.HouseholdID}|Dry`;
+  const sc = d.score;
+  v.innerHTML = `<div class="grid">
+    <div class="card"><div class="row"><div><h2 style="margin:0">${esc(h.Label)}</h2><div class="muted">${esc(h.HouseholdID)} · ${esc(place ? place.Name : '')}</div></div><div class="sp"></div><button class="btn grey sm" id="cSwitch">${esc(T('Switch household', 'घर बदलें'))}</button></div></div>
+    <div id="cStat"></div>
+    <div class="grid g2">
+      <div class="card"><h3>${esc(T('Where is the truck?', 'ट्रक कहाँ है?'))}</h3><div id="cMap" class="map"></div></div>
+      <div class="card"><h3>${esc(T('My bag tags', 'मेरे बैग टैग'))}</h3>
+        <div class="qrs">
+          <div class="qrc wet"><img src="${qrImg(wetTxt, 5)}" alt="Wet QR"><b style="color:var(--wet)">${esc(T('WET bag', 'गीला बैग'))}</b><div class="muted">${esc(T('food, vegetable, leaves', 'खाना, सब्ज़ी, पत्ते'))}</div></div>
+          <div class="qrc dry"><img src="${qrImg(dryTxt, 5)}" alt="Dry QR"><b style="color:var(--dry)">${esc(T('DRY bag', 'सूखा बैग'))}</b><div class="muted">${esc(T('plastic, paper, metal', 'प्लास्टिक, कागज़, धातु'))}</div></div>
+        </div>
+        <p class="muted" style="margin-top:8px">${esc(T('Stick one tag on each bag. The driver scans it and weighs the bag.', 'हर बैग पर एक टैग चिपकाएँ। ड्राइवर स्कैन करके बैग तौलेगा।'))}</p>
+      </div>
+    </div>
+    <div class="card"><div class="row"><div><h3 style="margin:0">${esc(T('Report a problem', 'समस्या बताएँ'))}</h3><div class="muted">${esc(T('Truck did not come, or you saw garbage dumped?', 'ट्रक नहीं आया, या कहीं कचरा फेंका दिखा?'))}</div></div><div class="sp"></div><button class="btn alt sm" id="cRepM">${esc(T('Truck missed me', 'ट्रक नहीं आया'))}</button><button class="btn alt sm" id="cRepD">${esc(T('New dump site', 'नया कचरा स्थल'))}</button></div></div>
+    <div class="grid g2">
+      <div id="cStats" style="display:contents">${statsHtml(d)}</div>
+    </div></div>`;
+  $('#cRepM').onclick = async () => {
+    const o = await editor(T('Truck missed my pickup', 'ट्रक मेरा पिकअप चूक गया'), [{ k: 'note', label: T('What happened? (optional)', 'क्या हुआ? (वैकल्पिक)') }], {});
+    if (!o) return;
+    try { await api('report', { kind: 'missed', householdId: h.HouseholdID, note: o.note || '' }); toast(T('Report sent to the in-charge.', 'रिपोर्ट प्रभारी को भेज दी गई।')); } catch (e) { toast(e.message, true); }
+  };
+  $('#cRepD').onclick = () => reportDump(h);
+  $('#cSwitch').onclick = () => { try { localStorage.removeItem('ww_hh'); } catch (e) {} route(); };
+
+  const m = makeMap($('#cMap'), { zoom: 16 }); S.maps.cMap = m;
+  let truck = null, lastKind = null, stopMk = null, drawnRoute = null;
+  if (m) {
+    const hp = [num(h.Lat), num(h.Lng)];
+    L.marker(hp, { icon: dot('🏠', '#2E7D32', 30) }).addTo(m).bindPopup(esc(h.Label));
+    m.setView(hp, 16);
+  }
+  const g = S.gen; let nTick = 0;
+  async function tick() {
+    let live;
+    try { live = await api('live', {}, { timeout: 12000 }); } catch (e) { return; }
+    if (g !== S.gen) return;
+    S.live = live;
+    const st = await citizenStatus(d, live);
+    if (g !== S.gen) return;
+    $('#cStat').innerHTML = statusView(st);
+    if (st.kind !== lastKind && (st.kind === 'done' || st.kind === 'here') || ++nTick % 4 === 0) {
+      try { const nd = await api('household', { id: h.HouseholdID }); if (g === S.gen && $('#cStats')) { Object.assign(d, nd); $('#cStats').innerHTML = statsHtml(d); } } catch (e) {}
+      if (g !== S.gen) return;
+    }
+    if (st.kind !== lastKind) {
+      if (lastKind && (st.kind === 'near' || st.kind === 'here' || st.kind === 'done')) { toast(st.big); try { navigator.vibrate && navigator.vibrate(220); } catch (e) {} }
+      lastKind = st.kind;
+    }
+    if (m && st.trip) {
+      if (!drawnRoute) { const path = await getPath(st.trip.RouteID); if (g !== S.gen) return; drawnRoute = L.polyline(path.pts, { color: '#1E88E5', weight: 4, opacity: .7 }).addTo(m); }
+      if (st.trip.loc) { const ll = [st.trip.loc.lat, st.trip.loc.lng]; if (!truck) truck = L.marker(ll, { icon: truckIcon() }).addTo(m); else truck.setLatLng(ll); if (!m._fit) { m._fit = 1; m.fitBounds(L.latLngBounds([ll, [num(h.Lat), num(h.Lng)]]).pad(.4)); } }
+    } else if (truck && m) { m.removeLayer(truck); truck = null; }
+  }
+  tick(); setTimer(tick, 2000);
+}
+/* ============================ DRIVER ============================ */
+function loginGate(v, roles, titleEn, titleHi) {
+  v.innerHTML = `<div class="card"><h2>${esc(T(titleEn, titleHi))}</h2><p class="muted">${esc(T('Please log in to continue.', 'आगे बढ़ने के लिए लॉगिन करें।'))}</p><div class="row" style="margin-top:12px"><button class="btn" id="gateGo">${esc(T('Log in', 'लॉगिन'))}</button></div></div>`;
+  $('#gateGo').onclick = async () => { if (await needLogin(roles)) route(); };
+}
+
+VIEWS.driver = async v => {
+  const roles = ['driver', 'incharge', 'admin'];
+  if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'Driver', 'चालक'); }
+  const live = await api('live'); S.live = live;
+  const running = live.active.filter(t => t.Status === 'Running');
+  const vehs = S.st.vehicles, routes = S.st.routes;
+  v.innerHTML = `<div class="grid g2">
+    <div class="card"><h2>${esc(T('Start a trip', 'ट्रिप शुरू करें'))}</h2>
+      <label class="f">${esc(T('Vehicle', 'वाहन'))}</label><select class="i" id="dVeh">${vehs.map(x => `<option value="${esc(x.VehicleID)}">${esc(x.Name)} (${esc(x.Type)})</option>`).join('')}</select>
+      <label class="f">${esc(T('Route', 'रास्ता'))}</label><select class="i" id="dRoute">${routes.map(r => `<option value="${esc(r.RouteID)}">${esc(r.Name)}${r.DistanceKm ? ' · ' + r.DistanceKm + ' km' : ''}</option>`).join('')}</select>
+      <div class="row" style="margin-top:14px"><button class="btn big" id="dStart">${esc(T('Start trip', 'ट्रिप शुरू करें'))}</button></div>
+      <p class="muted" id="dMsg" style="margin-top:8px"></p></div>
+    <div class="card"><h2>${esc(T('Trips on the road', 'सड़क पर चल रही ट्रिप'))}</h2>
+      ${running.length ? running.map(t => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.kg)} kg · ${t.pickups} ${esc(T('pickups', 'पिकअप'))}</div></div><div class="sp"></div><button class="btn alt sm" data-resume="${esc(t.TripID)}">${esc(T('Resume', 'जारी रखें'))}</button></div>`).join('') : `<p class="muted">${esc(T('No trip is running.', 'कोई ट्रिप नहीं चल रही।'))}</p>`}
+    </div></div>`;
+  const syncRoute = () => { const x = VEH($('#dVeh').value); if (x && x.RouteID) $('#dRoute').value = x.RouteID; };
+  $('#dVeh').onchange = syncRoute; syncRoute();
+  $('#dStart').onclick = async () => {
+    try { const d = await api('startTrip', { routeId: $('#dRoute').value, vehicleId: $('#dVeh').value }); await driverTrip(v, d.trip); }
+    catch (e) { $('#dMsg').textContent = e.message; }
+  };
+  $$('[data-resume]').forEach(b => b.onclick = async () => {
+    const t = running.find(x => x.TripID === b.dataset.resume);
+    try { await driverTrip(v, { TripID: t.TripID, RouteID: t.RouteID, VehicleID: t.VehicleID, Status: 'Running' }, t.loc); } catch (e) { toast(e.message, true); }
+  });
+};
+
+function parseTag(text) {
+  const m = String(text || '').trim().match(/^WW\|([A-Za-z0-9-]+)\|(Wet|Dry)$/i);
+  return m ? { hh: m[1].toUpperCase(), stream: m[2][0].toUpperCase() + m[2].slice(1).toLowerCase() } : null;
+}
+function scanQR(onText) {
+  const m = modal(`<h3>${esc(T('Scan the bag QR tag', 'बैग का QR टैग स्कैन करें'))}</h3><div id="qrReader" style="width:100%;min-height:240px;background:#000;border-radius:12px"></div><p class="muted" id="qrMsg" style="margin-top:8px"></p><div class="row" style="margin-top:10px"><button class="btn grey" id="qrNo">${esc(T('Close', 'बंद करें'))}</button></div>`);
+  let sc = null, finished = false;
+  const stop = async () => { try { if (sc) { await sc.stop(); sc.clear(); } } catch (e) {} sc = null; };
+  stopScanner = stop;
+  $('#qrNo').onclick = async () => { finished = true; await stop(); m.close(); };
+  m.onclose = stop;
+  if (!window.Html5Qrcode) { $('#qrMsg').textContent = T('Scanner not available. Enter the ID by hand.', 'स्कैनर उपलब्ध नहीं। ID हाथ से लिखें।'); return; }
+  sc = new Html5Qrcode('qrReader');
+  sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } }, async txt => {
+    if (finished) return; const t = parseTag(txt);
+    if (!t) { $('#qrMsg').textContent = T('That is not a WasteWise tag.', 'यह वेस्टवाइज टैग नहीं है।'); return; }
+    finished = true; await stop(); m.close(); onText(t);
+  }, () => {}).catch(() => { $('#qrMsg').textContent = T('Camera not available. Use "Enter by hand".', 'कैमरा उपलब्ध नहीं। "हाथ से लिखें" चुनें।'); });
+}
+
+async function driverTrip(v, trip, loc0) {
+  const path = await getPath(trip.RouteID);
+  if (!path) throw new Error('This route has fewer than two stops.');
+  let pk = []; try { pk = (await api('tripPickups', { id: trip.TripID })).pickups; } catch (e) {}
+  const D = { trip, path, dist: 0, gi: 0, k: 0, mode: 'demo', f: 6, moving: false, arrived: true, done: new Set(), pk, spd: 0, timer: null, ended: false };
+  if (loc0 && loc0.gi >= 0) { D.gi = loc0.gi; D.dist = path.cum[D.gi]; D.k = Math.max(0, path.stopGi.filter(g => g <= D.gi).length - 1); }
+  pk.forEach(x => D.done.add(x.PlaceID));
+  const stops = path.stops, last = stops.length - 1;
+  const route = ROUTE(trip.RouteID) || { Name: trip.RouteID };
+  const isService = i => i > 0 && i < last;
+  const nextTarget = () => { for (let i = D.k + 1; i < last; i++) { if (!D.done.has(stops[i].PlaceID)) return i; } return last; };
+
+  v.innerHTML = `<div class="grid g2">
+    <div class="grid" style="align-content:start">
+      <div class="card"><div class="row"><div><h2 style="margin:0">${esc(route.Name)}</h2><div class="muted">${esc(trip.TripID)} · ${esc((VEH(trip.VehicleID) || {}).Name || '')}</div></div><div class="sp"></div><div style="text-align:right"><div style="font-size:24px;font-weight:800" id="dKg">0.0 kg</div><div class="muted" id="dCnt"></div></div></div>
+        <div class="bar" style="margin-top:10px"><i id="dBar" style="width:0%"></i></div></div>
+      <div class="card" id="dNext"></div>
+      <div class="card"><h3>${esc(T('Stops', 'पड़ाव'))}</h3><ul class="stops" id="dStops"></ul></div>
+      <div class="card"><h3>${esc(T('This trip', 'यह ट्रिप'))}</h3><div class="scroll"><table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>ID</th><th>${esc(T('Type', 'प्रकार'))}</th><th>kg</th><th>${esc(T('Sorting', 'अलगाव'))}</th></tr></thead><tbody id="dPk"></tbody></table></div></div>
+    </div>
+    <div class="card"><div id="dMap" class="map tall"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn grey sm" id="bMute">${esc(T('Simulate lost signal (30 s)', 'सिग्नल जाना दिखाएँ (30 सेकंड)'))}</button>
+        <div class="seg" style="max-width:260px"><button id="mDemo" class="on good">${esc(T('Demo drive', 'डेमो ड्राइव'))}</button><button id="mGps">${esc(T('Real GPS', 'असली GPS'))}</button></div>
+        <label class="muted" id="fWrap">${esc(T('Demo speed', 'डेमो गति'))} <select id="dF" class="i" style="width:auto;min-height:34px;padding:4px 8px"><option value="3">×3</option><option value="6" selected>×6</option><option value="12">×12</option><option value="25">×25</option></select></label>
+      </div></div></div>`;
+
+  const m = makeMap($('#dMap'), { zoom: 16 }); S.maps.dMap = m;
+  let tm = null;
+  if (m) {
+    L.polyline(path.pts, { color: '#1E88E5', weight: 5, opacity: .75 }).addTo(m);
+    stops.forEach((p, i) => placeMarker(p, isService(i) ? i : null).addTo(m));
+    tm = L.marker(path.pts[D.gi], { icon: truckIcon() }).addTo(m);
+    m.fitBounds(L.polyline(path.pts).getBounds().pad(.2));
+  }
+  const pos = () => path.pts[Math.min(D.gi, path.pts.length - 1)];
+  function moveTruck() { if (tm) { tm.setLatLng(pos()); if (m && !m.getBounds().pad(-.15).contains(pos())) m.panTo(pos()); } }
+
+  function renderStops() {
+    $('#dStops').innerHTML = stops.map((p, i) => {
+      const cls = D.done.has(p.PlaceID) ? 'done' : (i === (D.moving ? D.target : nextTarget()) ? 'cur' : '');
+      const tag = i === 0 ? '🏭' : i === last ? '♻️' : i;
+      return `<li class="${cls}"><span class="no">${tag}</span><div><b>${esc(p.Name)}</b><div class="muted">${esc(p.Type)}${p.Colony ? ' · ' + esc(p.Colony) : ''}</div></div></li>`;
+    }).join('');
+  }
+  function renderPk() {
+    const kg = D.pk.reduce((s, x) => s + num(x.WeightKg), 0);
+    $('#dKg').textContent = f1(kg) + ' kg'; $('#dCnt').textContent = D.pk.length + ' ' + T('pickups', 'पिकअप');
+    const svc = stops.filter((_, i) => isService(i)).length;
+    const dn = stops.filter((p, i) => isService(i) && D.done.has(p.PlaceID)).length;
+    $('#dBar').style.width = (svc ? Math.round(100 * dn / svc) : 0) + '%';
+    $('#dPk').innerHTML = D.pk.slice().reverse().map(x => `<tr><td>${fmtT(x.Time)}</td><td>${esc(x.HouseholdID || '—')}</td><td><span class="tag ${String(x.Stream).toLowerCase()}">${esc(x.Stream)}</span></td><td>${f1(x.WeightKg)}</td><td><span class="tag ${String(x.Segregation).toLowerCase()}">${esc(x.Segregation)}</span></td></tr>`).join('') || `<tr><td colspan="5" class="muted">${esc(T('No pickups yet.', 'अभी कोई पिकअप नहीं।'))}</td></tr>`;
+  }
+  function renderNext() {
+    const el = $('#dNext'); renderStops(); renderPk();
+    if (D.ended) { el.innerHTML = `<h3>${esc(T('Trip ended', 'ट्रिप समाप्त'))}</h3><p>${esc(T('The load is waiting at the MRF.', 'माल एमआरएफ में रिसीव होने की प्रतीक्षा में है।'))}</p><div class="row"><button class="btn" onclick="route()">${esc(T('Back', 'वापस'))}</button></div>`; return; }
+    if (D.moving) {
+      const t = stops[D.target];
+      const remain = Math.max(0, Math.round(path.cum[path.stopGi[D.target]] - D.dist));
+      el.innerHTML = `<div class="muted">${esc(T('Driving to', 'जा रहे हैं'))}</div><h2 style="margin:0">${esc(t.Name)}</h2><div style="font-size:26px;font-weight:800;margin:6px 0">${remain} m</div>${D.mode === 'gps' ? `<button class="btn alt" id="bArr">${esc(T('I have arrived', 'मैं पहुँच गया'))}</button>` : ''}`;
+      if ($('#bArr')) $('#bArr').onclick = arrive; return;
+    }
+    const cur = stops[D.k];
+    if (D.k === last) {
+      el.innerHTML = `<div class="muted">${esc(T('At the MRF', 'एमआरएफ पर'))}</div><h2 style="margin:0">${esc(cur.Name)}</h2><p>${esc(T('Hand over the load and end the trip. The MRF will weigh and sort it.', 'माल सौंपकर ट्रिप समाप्त करें। एमआरएफ तौलकर छाँटेगा।'))}</p><button class="btn big" id="bEnd">${esc(T('Hand over and end trip', 'माल सौंपें और ट्रिप खत्म करें'))}</button>`;
+      $('#bEnd').onclick = endTrip; return;
+    }
+    if (D.k === 0 && !D.pk.length && !D.done.size) {
+      const t = stops[nextTarget()];
+      el.innerHTML = `<div class="muted">${esc(T('At the depot', 'डिपो पर'))}</div><h2 style="margin:0">${esc(T('Ready to go', 'चलने को तैयार'))}</h2><p>${esc(T('First stop: ', 'पहला पड़ाव: '))}<b>${esc(t.Name)}</b></p><button class="btn big" id="bGo">${esc(T('Drive to first stop', 'पहले पड़ाव पर चलें'))}</button>`;
+      $('#bGo').onclick = startDrive; return;
+    }
+    const nt = nextTarget();
+    el.innerHTML = `<div class="muted">${esc(T('Arrived at', 'पहुँच गए'))}</div><h2 style="margin:0">${esc(cur.Name)}</h2>
+      <div class="row" style="margin:12px 0"><button class="btn big" id="bScan">📷 ${esc(T('Scan bag', 'बैग स्कैन करें'))}</button><button class="btn alt big" id="bMan">⌨️ ${esc(T('Enter by hand', 'हाथ से लिखें'))}</button></div>
+      <div class="row"><button class="btn grey" id="bNext">${esc(nt === last ? T('Done here · drive to MRF', 'यहाँ पूरा · एमआरएफ चलें') : T('Done here · next stop', 'यहाँ पूरा · अगला पड़ाव'))}</button>${D.k > 0 && D.k < last ? `<button class="btn bad sm" id="bSkip">${esc(T('Skip this stop', 'यह पड़ाव छोड़ें'))}</button>` : ''}</div>`;
+    $('#bScan').onclick = () => scanQR(t => pickupForm(t.hh, t.stream));
+    $('#bMan').onclick = () => pickupForm('', 'Wet');
+    $('#bNext').onclick = () => { D.done.add(cur.PlaceID); startDrive(); };
+    if ($('#bSkip')) $('#bSkip').onclick = async () => {
+      const o = await editor(T('Skip this stop', 'यह पड़ाव छोड़ें'), [{ k: 'reason', label: T('Reason', 'कारण'), type: 'select', opts: [['Bags not ready', T('Bags not ready', 'बैग तैयार नहीं')], ['Road blocked', T('Road blocked', 'सड़क बंद')], ['Truck full', T('Truck full', 'ट्रक भरा')]] }], { reason: 'Bags not ready' });
+      if (!o) return;
+      try { await api('skip', { tripId: trip.TripID, placeId: cur.PlaceID, reason: o.reason }); D.done.add(cur.PlaceID); toast(T('Stop skipped. The in-charge and the citizen are told.', 'पड़ाव छोड़ा। प्रभारी और नागरिक को बताया गया।')); startDrive(); } catch (e) { toast(e.message, true); }
+    };
+  }
+
+  function pickupForm(hh, stream) {
+    const cur = stops[D.k];
+    const st = { stream: stream || 'Wet', seg: 'Good' };
+    const mm = modal(`<h3>${esc(cur.Name)}</h3>
+      <label class="f">${esc(T('Household ID', 'घर की ID'))}</label><input class="i" id="pHH" value="${esc(hh)}" placeholder="HH-D03" autocapitalize="characters">
+      <label class="f">${esc(T('Bag', 'बैग'))}</label><div class="seg" id="pStream"><button data-v="Wet" class="wet">${esc(T('Wet', 'गीला'))}</button><button data-v="Dry" class="dry">${esc(T('Dry', 'सूखा'))}</button><button data-v="Mixed" class="mixed">${esc(T('Mixed', 'मिला'))}</button></div>
+      <label class="f">${esc(T('Weight (kg)', 'वज़न (किलो)'))}</label><input class="i" id="pKg" type="number" step="0.1" min="0" inputmode="decimal" placeholder="0.0">
+      <label class="f">${esc(T('How well separated?', 'कितना अच्छा अलग किया?'))}</label><div class="seg" id="pSeg"><button data-v="Good" class="good">${esc(T('Good', 'अच्छा'))}</button><button data-v="Partly" class="partly">${esc(T('Partly', 'कुछ'))}</button><button data-v="Poor" class="poor">${esc(T('Poor', 'खराब'))}</button></div>
+      <div class="row" style="margin-top:14px"><button class="btn" id="pSave">${esc(T('Save pickup', 'पिकअप सेव करें'))}</button><button class="btn grey" id="pNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="pMsg"></p>`);
+    const sync = () => { $$('#pStream button', mm.el).forEach(b => b.classList.toggle('on', b.dataset.v === st.stream)); $$('#pSeg button', mm.el).forEach(b => b.classList.toggle('on', b.dataset.v === st.seg)); };
+    $$('#pStream button', mm.el).forEach(b => b.onclick = () => { st.stream = b.dataset.v; sync(); });
+    $$('#pSeg button', mm.el).forEach(b => b.onclick = () => { st.seg = b.dataset.v; sync(); });
+    sync(); setTimeout(() => $('#pKg') && $('#pKg').focus(), 80);
+    $('#pNo').onclick = mm.close;
+    $('#pSave').onclick = async () => {
+      const btn = $('#pSave'); btn.disabled = true;
+      try {
+        const id = $('#pHH').value.trim().toUpperCase();
+        const params = { tripId: trip.TripID, stream: st.stream, kg: $('#pKg').value, seg: st.seg };
+        if (id) params.householdId = id; else params.placeId = cur.PlaceID;
+        const d = await api('pickup', params);
+        D.pk.push(d.pickup); D.done.add(d.pickup.PlaceID || cur.PlaceID);
+        mm.close(); toast(`${T('Saved', 'सेव हुआ')} · ${f1(d.pickup.WeightKg)} kg ${d.pickup.Stream}${id ? ' · ' + id : ''}`);
+        renderNext();
+      } catch (e) { $('#pMsg').textContent = e.message; btn.disabled = false; }
+    };
+  }
+
+  function arrive() {
+    clearInterval(D.timer); D.moving = false; D.arrived = true; D.k = D.target; D.spd = 0;
+    D.dist = path.cum[path.stopGi[D.k]]; D.gi = path.stopGi[D.k]; moveTruck(); pingNow(); renderNext();
+    if (D.k !== last) toast(T('Arrived: ', 'पहुँच गए: ') + stops[D.k].Name);
+  }
+  function startDrive() {
+    D.target = nextTarget(); D.moving = true; D.arrived = false; renderNext();
+    clearInterval(D.timer);
+    if (D.mode === 'demo') {
+      D.timer = setInterval(() => {
+        const tgi = path.stopGi[D.target];
+        const base = (num(S.st.config.AvgSpeedKmh, 20) / 3.6) * D.f;
+        const rem0 = path.cum[tgi] - D.dist;
+        const wob = Math.max(0.3, 0.85 + 0.3 * Math.sin(D.dist / 70) + 0.15 * Math.sin(D.dist / 23));
+        const spd = base * wob * Math.min(1, 0.3 + rem0 / 60);
+        D.dist += spd * 0.5; D.spd = (D.spd || spd) * 0.8 + spd * 0.2;
+        while (D.gi < tgi && path.cum[D.gi + 1] <= D.dist) D.gi++;
+        moveTruck();
+        if (D.gi >= tgi) { arrive(); return; }
+        const rem = $('#dNext h2 + div'); if (rem) rem.textContent = Math.max(0, Math.round(path.cum[tgi] - D.dist)) + ' m';
+      }, 500);
+      S.timers.push(D.timer);
+    }
+  }
+  let watch = null;
+  function startGps() {
+    if (!navigator.geolocation) { toast(T('GPS is not available.', 'GPS उपलब्ध नहीं।'), true); return; }
+    watch = navigator.geolocation.watchPosition(p => {
+      const lat = p.coords.latitude, lng = p.coords.longitude;
+      D.gi = nearestIdx(path.pts, lat, lng, Math.max(0, D.gi - 5)); D.dist = path.cum[D.gi];
+      D.spd = p.coords.speed > 0 ? p.coords.speed : num(S.st.config.AvgSpeedKmh, 20) / 3.6;
+      moveTruck();
+      if (D.moving && hav(lat, lng, num(stops[D.target].Lat), num(stops[D.target].Lng)) < 40) arrive();
+    }, e => toast(T('GPS error: ', 'GPS त्रुटि: ') + e.message, true), { enableHighAccuracy: true, maximumAge: 2000 });
+  }
+  function pingNow() { if (D.mute && Date.now() < D.mute) return; const p = pos(); api('ping', { tripId: trip.TripID, lat: p[0], lng: p[1], gi: D.gi, spd: D.moving ? D.spd : 0 }, { timeout: 8000 }).catch(() => {}); }
+  async function endTrip() {
+    try { await api('endTrip', { tripId: trip.TripID }); D.ended = true; clearInterval(D.timer); if (watch != null) navigator.geolocation.clearWatch(watch); toast(T('Trip ended. Waiting at the MRF.', 'ट्रिप खत्म। एमआरएफ में प्रतीक्षा।')); renderNext(); }
+    catch (e) { toast(e.message, true); }
+  }
+  $('#mDemo').onclick = () => { D.mode = 'demo'; $('#mDemo').classList.add('on', 'good'); $('#mGps').classList.remove('on', 'good'); $('#fWrap').classList.remove('hide'); if (watch != null) { navigator.geolocation.clearWatch(watch); watch = null; } };
+  $('#mGps').onclick = () => { D.mode = 'gps'; $('#mGps').classList.add('on', 'good'); $('#mDemo').classList.remove('on', 'good'); $('#fWrap').classList.add('hide'); clearInterval(D.timer); if (D.moving) renderNext(); startGps(); };
+  $('#bMute').onclick = () => { D.mute = Date.now() + 30000; toast(T('Pings paused for 30 seconds. Watch the in-charge screen.', '30 सेकंड के लिए पिंग बंद। प्रभारी स्क्रीन देखें।')); };
+  $('#dF').onchange = e => { D.f = num(e.target.value, 6); };
+  setTimer(pingNow, 2000);
+  moveTruck(); renderNext(); pingNow();
+}
+
+/* ============================ MRF ============================ */
+VIEWS.mrf = async v => {
+  const roles = ['mrf', 'admin'];
+  if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'MRF operator', 'एमआरएफ ऑपरेटर'); }
+  const rates = {}; S.st.rates.forEach(r => { rates[r.Category] = num(r.RatePerKg); });
+  const CATS = [['Organic', 'जैविक'], ['Plastic', 'प्लास्टिक'], ['Paper', 'कागज़'], ['Glass', 'काँच'], ['Metal', 'धातु'], ['Other', 'अन्य']];
+  async function draw() {
+    const g = S.gen;
+    const [live, rc] = await Promise.all([api('live'), api('list', { tab: 'MRF_Receipts' })]);
+    if (g !== S.gen) return;
+    v.innerHTML = `<div class="grid g2">
+      <div class="card"><h2>${esc(T('Loads waiting at the MRF', 'एमआरएफ में आए माल'))}</h2>
+        ${live.pending.length ? live.pending.map(t => `<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.TotalKg)} kg ${esc(T('on the truck', 'ट्रक में'))}</div></div><div class="sp"></div><button class="btn sm" data-rc="${esc(t.TripID)}" data-kg="${t.TotalKg}">${esc(T('Receive and sort', 'लें और छाँटें'))}</button></div>`).join('') : `<p class="muted">${esc(T('No load is waiting. A driver sends a load here when a trip ends.', 'कोई माल प्रतीक्षा में नहीं। ट्रिप खत्म होने पर ड्राइवर माल यहाँ भेजता है।'))}</p>`}
+      </div>
+      <div class="card"><h2>${esc(T('Today at the MRF', 'आज एमआरएफ में'))}</h2><div class="grid g3"><div class="kpi"><div class="n">${rs(live.today.revenue)}</div><div class="l">${esc(T('income from dry waste', 'सूखे कचरे से आमदनी'))}</div></div><div class="kpi"><div class="n">${f1(live.today.rejectedKg)} kg</div><div class="l">${esc(T('rejected (poorly sorted)', 'अस्वीकृत (खराब छँटाई)'))}</div></div></div>
+        <p class="muted" style="margin-top:8px">${esc(T('Rates (₹/kg): ', 'दरें (₹/किलो): '))}${CATS.map(c => c[0] + ' ' + rates[c[0]]).join(' · ')}. ${esc(T('Assumed rates, to be confirmed with scrap dealers.', 'अनुमानित दरें, कबाड़ी से पक्की होनी हैं।'))}</p></div>
+      <div class="card" style="grid-column:1/-1"><h3>${esc(T('Received loads', 'रिसीव किए गए माल'))}</h3><div class="scroll"><table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Trip', 'ट्रिप'))}</th>${CATS.map(c => `<th>${c[0]}</th>`).join('')}<th>${esc(T('Rejected', 'अस्वीकृत'))}</th><th>${esc(T('Income', 'आमदनी'))}</th></tr></thead><tbody>
+        ${rc.rows.slice().reverse().map(r => `<tr><td>${fmtD(r.Time)} ${fmtT(r.Time)}</td><td>${esc(r.TripID)}</td>${CATS.map(c => `<td>${f1(r[c[0]])}</td>`).join('')}<td>${f1(r.Rejected)}</td><td>${rs(r.Revenue)}</td></tr>`).join('') || `<tr><td colspan="10" class="muted">—</td></tr>`}</tbody></table></div></div></div>`;
+    $$('[data-rc]').forEach(b => b.onclick = () => receiveForm(b.dataset.rc, num(b.dataset.kg)));
+  }
+  function receiveForm(tripId, kg) {
+    const mm = modal(`<h3>${esc(T('Sort and weigh', 'छाँटें और तौलें'))} · ${esc(tripId)}</h3><p class="muted">${esc(T('Weigh each category after sorting. The truck carried ', 'छँटाई के बाद हर श्रेणी तौलें। ट्रक में था '))}${f1(kg)} kg.</p>
+      <div class="grid" style="grid-template-columns:1fr 1fr">${CATS.map(c => `<div><label class="f">${esc(T(c[0], c[1]))} (kg)</label><input class="i" data-c="${c[0].toLowerCase()}" type="number" step="0.1" min="0" inputmode="decimal" value="0"></div>`).join('')}<div><label class="f">${esc(T('Rejected (kg)', 'अस्वीकृत (किलो)'))}</label><input class="i" data-c="rejected" type="number" step="0.1" min="0" value="0"></div></div>
+      <label class="f">${esc(T('Note', 'टिप्पणी'))}</label><input class="i" id="rcNote" maxlength="120">
+      <div class="row" style="margin-top:10px"><button class="btn grey sm" id="rcFill">${esc(T('Fill good split (demo)', 'अच्छा बँटवारा भरें (डेमो)'))}</button><button class="btn grey sm" id="rcPoor">${esc(T('Fill poor split (demo)', 'खराब बँटवारा भरें (डेमो)'))}</button><div class="sp"></div><div><b id="rcRev">₹0</b> <span class="muted">${esc(T('income', 'आमदनी'))}</span></div></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="rcSave">${esc(T('Save receipt', 'रसीद सेव करें'))}</button><button class="btn grey" id="rcNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="rcMsg"></p>`);
+    const inp = () => $$('[data-c]', mm.el);
+    const rev = () => { let s = 0; inp().forEach(e => { const k = e.dataset.c; const cat = CATS.find(c => c[0].toLowerCase() === k); if (cat) s += num(e.value) * (rates[cat[0]] || 0); }); $('#rcRev').textContent = rs(s); };
+    inp().forEach(e => e.oninput = rev);
+    $('#rcFill').onclick = () => { const w = kg * 0.72, d = kg - w; const set = { organic: w * .95, plastic: d * .45, paper: d * .4, glass: 0, metal: d * .05, other: w * .05 + d * .1, rejected: kg * .03 }; inp().forEach(e => { e.value = f1(set[e.dataset.c] || 0); }); rev(); };
+    $('#rcPoor').onclick = () => { const set = { organic: kg * .35, plastic: kg * .08, paper: kg * .07, glass: 0, metal: kg * .02, other: kg * .1, rejected: kg * .38 }; inp().forEach(e => { e.value = f1(set[e.dataset.c] || 0); }); rev(); };
+    $('#rcNo').onclick = mm.close;
+    $('#rcSave').onclick = async () => {
+      const btn = $('#rcSave'); btn.disabled = true;
+      const p = { tripId, notes: $('#rcNote').value }; inp().forEach(e => { p[e.dataset.c] = e.value; });
+      try {
+        const d = await api('receive', p); mm.close();
+        toast(`${T('Saved. Income ', 'सेव हुआ। आमदनी ')}${rs(d.receipt.Revenue)}${d.alert ? ' · ' + T('Segregation alert sent', 'अलगाव अलर्ट भेजा') : ''}`);
+        draw();
+      } catch (e) { $('#rcMsg').textContent = e.message; btn.disabled = false; }
+    };
+  }
+  await draw();
+  setTimer(() => { if (!$('.modal')) draw().catch(() => {}); }, 8000);
+};
+/* ============================ SHARED LIVE BOARD ============================ */
+async function buildLiveBoard(el, dark) {
+  const m = makeMap(el, { dark, zoom: 15 }); S.maps[el.id] = m;
+  const board = { m, trucks: {}, binMk: {}, dumps: L.layerGroup() };
+  const cols = ['#43A047', '#1E88E5', '#FB8C00', '#AB47BC', '#00ACC1'];
+  const all = [], seen = new Set();
+  let ci = 0;
+  for (const r of S.st.routes) {
+    const path = await getPath(r.RouteID); if (!path) continue;
+    L.polyline(path.pts, { color: cols[ci++ % cols.length], weight: 4, opacity: .85 }).addTo(m).bindTooltip(r.Name);
+    path.pts.forEach(p => all.push(p));
+    path.stops.forEach((p, i) => { if (seen.has(p.PlaceID)) return; seen.add(p.PlaceID); placeMarker(p, null).addTo(m); });
+  }
+  S.st.places.filter(p => p.Type === 'Dump Site').forEach(p => {
+    L.circleMarker([num(p.Lat), num(p.Lng)], { radius: 4, color: '#C62828', weight: 1, fillColor: '#EF5350', fillOpacity: .8 }).addTo(board.dumps).bindPopup(`<b>${esc(p.Name)}</b><br>${esc(p.Notes || '')}`);
+  });
+  board.dumps.addTo(m);
+  if (all.length) m.fitBounds(L.latLngBounds(all).pad(.15));
+  board.update = async live => {
+    const have = new Set();
+    for (const t of live.active) {
+      if (!t.loc) continue; have.add(t.TripID);
+      const ll = [t.loc.lat, t.loc.lng];
+      if (!board.trucks[t.TripID]) board.trucks[t.TripID] = L.marker(ll, { icon: truckIcon(), zIndexOffset: 1000 }).addTo(m).bindTooltip((VEH(t.VehicleID) || {}).Name || t.TripID, { permanent: false });
+      else board.trucks[t.TripID].setLatLng(ll);
+    }
+    Object.keys(board.trucks).forEach(k => { if (!have.has(k)) { m.removeLayer(board.trucks[k]); delete board.trucks[k]; } });
+    board.alertMk = board.alertMk || {};
+    const seenA = new Set();
+    (live.alerts || []).filter(a => a.Lat != null && /Missed|dump|Bin full/i.test(a.Type)).forEach(a => {
+      seenA.add(a.AlertID);
+      if (!board.alertMk[a.AlertID]) board.alertMk[a.AlertID] = L.marker([a.Lat, a.Lng], { icon: L.divIcon({ className: '', html: '<div class="mk" style="width:30px;height:30px;border-radius:50%;background:#C62828;font-size:16px;animation:pulse 1.4s infinite">!</div>', iconSize: [30, 30], iconAnchor: [15, 15] }), zIndexOffset: 800 }).addTo(m).bindTooltip(a.Type + ': ' + a.Message);
+    });
+    Object.keys(board.alertMk).forEach(k => { if (!seenA.has(k)) { m.removeLayer(board.alertMk[k]); delete board.alertMk[k]; } });
+    live.bins.forEach(b => {
+      const p = PLACE(b.PlaceID); if (!p) return;
+      const col = b.FillPct >= 80 ? '#C62828' : b.FillPct >= 50 ? '#F9A825' : '#2E7D32';
+      const ic = L.divIcon({ className: '', html: `<div class="mk" style="width:44px;height:24px;border-radius:12px;background:${col}">🗑 ${Math.round(b.FillPct)}%</div>`, iconSize: [44, 24], iconAnchor: [22, 34] });
+      if (!board.binMk[b.BinID]) board.binMk[b.BinID] = L.marker([num(p.Lat), num(p.Lng)], { icon: ic, zIndexOffset: 500 }).addTo(m).bindTooltip(b.Name);
+      else board.binMk[b.BinID].setIcon(ic);
+    });
+  };
+  return board;
+}
+
+function kpiTiles(live, cls) {
+  const t = live.today;
+  const k = (n, l) => `<div class="kpi"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`;
+  return k(f1(t.kg) + ' kg', T('collected today', 'आज उठाया')) +
+    k(t.segGoodPct == null ? '–' : t.segGoodPct + '%', T('well separated', 'अच्छा अलग')) +
+    k(rs(t.revenue), T('income from dry waste', 'सूखे कचरे से आमदनी')) +
+    k(t.pickups + ' · ' + t.trips, T('pickups · trips', 'पिकअप · ट्रिप')) +
+    (cls === 'full' ? k(f1(t.wetKg) + ' / ' + f1(t.dryKg), T('wet / dry kg', 'गीला / सूखा किलो')) + k(f1(t.rejectedKg) + ' kg', T('rejected at MRF', 'एमआरएफ में अस्वीकृत')) : '');
+}
+
+async function trucksHtml(live, dark) {
+  if (!live.active.length) return `<p class="muted">${esc(T('No truck on the road.', 'सड़क पर कोई ट्रक नहीं।'))}</p>`;
+  let out = '';
+  for (const t of live.active) {
+    const path = await getPath(t.RouteID);
+    const gi = t.loc && t.loc.gi >= 0 ? t.loc.gi : 0;
+    const pct = path ? Math.round(100 * path.cum[Math.min(gi, path.cum.length - 1)] / Math.max(1, path.total)) : 0;
+    let eta = '';
+    if (path && t.Status === 'Running') { const spd = t.loc && t.loc.spd > .5 ? t.loc.spd : num(S.st.config.AvgSpeedKmh, 20) / 3.6; eta = ' · ' + T('MRF in ', 'एमआरएफ ') + fmtEta((path.total - path.cum[Math.min(gi, path.cum.length - 1)]) / spd); }
+    out += `<div class="tk" style="padding:8px 0;border-bottom:1px solid ${dark ? '#24422D' : 'var(--line)'}"><div class="row"><b>${esc((VEH(t.VehicleID) || {}).Name || t.TripID)}</b><span class="tag ${t.Status === 'Running' ? 'run' : 'tomrf'}">${esc(t.Status === 'Running' ? T('On route', 'रास्ते में') : T('At MRF', 'एमआरएफ पर'))}</span>${t.Status === 'Running' && t.loc && live.now - t.loc.t > 20000 ? `<span class="tag poor">⚠ ${esc(T('No signal ', 'सिग्नल नहीं '))}${Math.round((live.now - t.loc.t) / 1000)} s</span>` : ''}<div class="sp"></div><span>${f1(t.kg)} kg</span></div><div class="muted">${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}${eta}</div><div class="bar" style="margin-top:5px"><i style="width:${pct}%"></i></div></div>`;
+  }
+  return out;
+}
+
+function chartDays(series, dark) {
+  if (!series.length) return `<p class="muted">—</p>`;
+  const W = 560, H = 190, pl = 34, pb = 26, pt = 10, bw = (W - pl - 6) / series.length;
+  const max = Math.max(10, ...series.map(s => s.wet + s.dry));
+  const ink = dark ? '#9DB8A3' : '#4A5A4E', grid = dark ? '#24422D' : '#DCE5DD';
+  let g = '';
+  for (let i = 0; i <= 4; i++) { const y = pt + (H - pt - pb) * (1 - i / 4); g += `<line x1="${pl}" x2="${W}" y1="${y}" y2="${y}" stroke="${grid}"/><text x="${pl - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="${ink}">${Math.round(max * i / 4)}</text>`; }
+  series.forEach((s, i) => {
+    const x = pl + i * bw + bw * .18, w = bw * .64, hh = H - pt - pb;
+    const hw = hh * s.wet / max, hd = hh * s.dry / max;
+    g += `<rect x="${x}" y="${pt + hh - hw}" width="${w}" height="${hw}" fill="#2E7D32" rx="2"><title>${s.date}: wet ${s.wet} kg</title></rect>`;
+    g += `<rect x="${x}" y="${pt + hh - hw - hd - 2}" width="${w}" height="${hd}" fill="#0288D1" rx="2"><title>${s.date}: dry ${s.dry} kg</title></rect>`;
+    g += `<text x="${x + w / 2}" y="${H - 9}" text-anchor="middle" font-size="9.5" fill="${ink}">${s.date.slice(8)}/${s.date.slice(5, 7)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="kg per day">${g}</svg><div class="row muted" style="gap:14px"><span><i style="display:inline-block;width:10px;height:10px;background:#2E7D32;border-radius:2px"></i> ${esc(T('Wet', 'गीला'))}</span><span><i style="display:inline-block;width:10px;height:10px;background:#0288D1;border-radius:2px"></i> ${esc(T('Dry', 'सूखा'))}</span></div>`;
+}
+
+function feedHtml(live) {
+  return live.recent.length ? live.recent.map(x => `<li>${fmtT(x.Time)} · <b>${esc(x.HouseholdID || x.Place)}</b> · <span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span> ${f1(x.WeightKg)} kg · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></li>`).join('') : `<li class="muted">—</li>`;
+}
+
+/* ============================ IN-CHARGE ============================ */
+VIEWS.incharge = async v => {
+  const roles = ['incharge', 'admin'];
+  if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'District in-charge', 'ज़िला प्रभारी'); }
+  v.innerHTML = `<div class="row"><h2 style="margin:0">${esc(T('Live operations', 'लाइव संचालन'))}</h2><div class="sp"></div><button class="btn alt" id="goScr">📽️ ${esc(T('Open command screen', 'कमांड स्क्रीन खोलें'))}</button></div>
+  <div class="grid g4" id="iKp" style="margin:12px 0"></div>
+  <div class="grid g2">
+    <div class="card"><div class="row"><h3 style="margin:0">${esc(T('Live map', 'लाइव नक्शा'))}</h3><div class="sp"></div><label class="muted"><input type="checkbox" id="showD" checked> ${esc(T('Dump sites', 'कचरा स्थल'))}</label></div><div id="iMap" class="map tall" style="margin-top:8px"></div></div>
+    <div class="grid" style="align-content:start">
+      <div class="card"><h3>${esc(T('Trucks', 'ट्रक'))}</h3><div id="iTrucks"></div></div>
+      <div class="card"><h3>${esc(T('Alerts', 'अलर्ट'))}</h3><div id="iAlerts"></div></div>
+      <div class="card"><h3>${esc(T('Smart bins (simulated, concept)', 'स्मार्ट बिन (सिम्युलेटेड, कॉन्सेप्ट)'))}</h3><div id="iBins"></div></div>
+    </div></div>
+  <div class="grid g2" style="margin-top:12px"><div class="card"><h3>${esc(T('Waste collected, last 14 days (kg)', 'पिछले 14 दिन का कचरा (किलो)'))}</h3><div id="iChart"></div></div>
+  <div class="card"><h3>${esc(T('Latest pickups', 'ताज़ा पिकअप'))}</h3><ul class="feed" id="iFeed"></ul></div></div>`;
+  $('#goScr').onclick = () => { location.hash = '#/screen'; };
+  const board = await buildLiveBoard($('#iMap'), false);
+  $('#showD').onchange = e => { if (e.target.checked) board.dumps.addTo(board.m); else board.m.removeLayer(board.dumps); };
+  const g = S.gen;
+  async function tick() {
+    let live; try { live = await api('live', {}, { timeout: 12000 }); } catch (e) { return; }
+    if (g !== S.gen) return;
+    S.live = live;
+    $('#iKp').innerHTML = kpiTiles(live, 'full');
+    const th = await trucksHtml(live); if (g !== S.gen) return;
+    $('#iTrucks').innerHTML = th;
+    $('#iFeed').innerHTML = feedHtml(live);
+    $('#iAlerts').innerHTML = live.alerts.length ? live.alerts.map(a => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="tag ${/Bin full|Missed|dump/i.test(a.Type) ? 'poor' : 'partly'}">${esc(a.Type)}</span><span style="flex:1">${esc(a.Message)}</span><button class="btn sm grey" data-res="${esc(a.AlertID)}">${esc(T('Resolve', 'हल'))}</button></div>`).join('') : `<p class="muted">${esc(T('No open alerts.', 'कोई खुला अलर्ट नहीं।'))}</p>`;
+    $$('[data-res]').forEach(b => b.onclick = async () => { try { await api('resolveAlert', { id: b.dataset.res }); tick(); } catch (e) { toast(e.message, true); } });
+    $('#iBins').innerHTML = live.bins.map(b => {
+      const col = b.FillPct >= 80 ? 'var(--bad)' : b.FillPct >= 50 ? 'var(--warn)' : 'var(--green2)';
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="row"><b>${esc(b.Name)}</b><div class="sp"></div><span>${Math.round(b.FillPct)}%</span></div><div class="bar"><i style="width:${b.FillPct}%;background:${col}"></i></div><div class="row" style="margin-top:6px"><button class="btn sm alt" data-bin="${esc(b.BinID)}" data-d="20">+20%</button><button class="btn sm alt" data-bin="${esc(b.BinID)}" data-d="max">${esc(T('Fill up', 'भरें'))}</button><button class="btn sm grey" data-bin="${esc(b.BinID)}" data-d="0">${esc(T('Empty', 'खाली'))}</button></div></div>`;
+    }).join('') + `<p class="muted" style="margin-top:6px">${esc(T('A real sensor can send the level to the same place. Here it is simulated.', 'असली सेंसर यही स्तर भेज सकता है। यहाँ सिम्युलेटेड है।'))}</p>`;
+    $$('[data-bin]').forEach(b => b.onclick = async () => {
+      const bin = live.bins.find(x => x.BinID === b.dataset.bin); const d = b.dataset.d;
+      const fill = d === 'max' ? 95 : d === '0' ? 5 : Math.min(100, bin.FillPct + 20);
+      try { await api('setBin', { binId: bin.BinID, fill }); tick(); } catch (e) { toast(e.message, true); }
+    });
+    if (g !== S.gen) return;
+    await board.update(live);
+  }
+  async function insights() { try { const d = await api('insights'); if (g !== S.gen) return; $('#iChart').innerHTML = chartDays(d.series); } catch (e) {} }
+  tick(); insights(); setTimer(tick, 3000); setTimer(insights, 20000);
+};
+
+/* ============================ COMMAND SCREEN (projector) ============================ */
+VIEWS.screen = async v => {
+  const roles = ['incharge', 'admin'];
+  if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) { document.body.classList.remove('screenmode'); return loginGate(v, roles, 'Command screen', 'कमांड स्क्रीन'); } }
+  document.body.classList.add('screenmode');
+  v.innerHTML = `<div class="scr">
+    <div class="hd"><img src="logo.png" alt="" onerror="this.style.display='none'"><div><h1>WasteWise Daporijo · ${esc(T('Live operations', 'लाइव संचालन'))}</h1><div class="muted">${esc(SCHOOL.name)}, Daporijo · ${esc(SCHOOL.event)} · ${esc(SCHOOL.theme)}</div><div class="muted" id="sDemo"></div></div><div style="flex:1"></div><img src="school.png" alt="" onerror="this.style.display='none'" style="border-radius:50%"><div class="live"><i></i> LIVE</div><div id="sClock" style="font-size:24px;font-weight:700;min-width:110px;text-align:right"></div><button class="chip" id="sFull">⛶</button><button class="chip" id="sExit">✕</button></div>
+    <div class="map" id="sMap"></div>
+    <div class="side">
+      <div class="kp" id="sKp"></div>
+      <div class="pnl"><h3>${esc(T('Trucks', 'ट्रक'))}</h3><div id="sTrucks"></div></div>
+      <div class="pnl" id="sAlertsP"><h3>${esc(T('Alerts', 'अलर्ट'))}</h3><div id="sAlerts"></div></div>
+      <div class="pnl" style="flex:1;min-height:0"><h3>${esc(T('Waste collected, last 14 days (kg)', 'पिछले 14 दिन का कचरा (किलो)'))}</h3><div id="sChart"></div></div>
+    </div>
+    <div class="tick" id="sTick"></div></div>`;
+  $('#sDemo').textContent = S.st.config.DemoMode ? T('Demo mode · simulated trips · real roads and places', 'डेमो मोड · सिम्युलेटेड ट्रिप · असली सड़कें और स्थान') : '';
+  const clock = () => { $('#sClock').textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }); };
+  clock(); setTimer(clock, 1000);
+  $('#sFull').onclick = () => { try { document.documentElement.requestFullscreen(); } catch (e) {} };
+  const exit = () => { try { document.fullscreenElement && document.exitFullscreen(); } catch (e) {} location.hash = '#/incharge'; };
+  $('#sExit').onclick = exit;
+  const esc_ = e => { if (e.key === 'Escape' && S.view === 'screen' && !document.fullscreenElement) exit(); };
+  document.addEventListener('keydown', esc_, { once: true });
+  const board = await buildLiveBoard($('#sMap'), true);
+  const g = S.gen;
+  async function tick() {
+    let live; try { live = await api('live', {}, { timeout: 12000 }); } catch (e) { return; }
+    if (g !== S.gen) return;
+    $('#sKp').innerHTML = kpiTiles(live);
+    const th = await trucksHtml(live, true); if (g !== S.gen) return;
+    $('#sTrucks').innerHTML = th;
+    $('#sAlerts').innerHTML = live.alerts.length ? live.alerts.slice(0, 3).map(a => `<div class="al">⚠ ${esc(a.Message)}</div>`).join('') : `<div class="muted">${esc(T('No open alerts.', 'कोई खुला अलर्ट नहीं।'))}</div>`;
+    $('#sTick').textContent = live.recent.length ? live.recent.slice(0, 6).map(x => `${fmtT(x.Time)} ${x.HouseholdID || x.Place}: ${f1(x.WeightKg)} kg ${x.Stream}`).join('   •   ') : '';
+    if (g !== S.gen) return;
+    await board.update(live);
+  }
+  async function insights() { try { const d = await api('insights'); if (g !== S.gen) return; $('#sChart').innerHTML = chartDays(d.series, true); } catch (e) {} }
+  tick(); insights(); setTimer(tick, 2500); setTimer(insights, 20000);
+};
+/* ============================ ADMIN ============================ */
+let adminTab = 'places';
+const PTYPES = ['Depot', 'MRF', 'Pickup Point', 'Public Bin', 'Dump Site', 'Market', 'Landmark'];
+async function refreshStatic() { S.paths = {}; S.st = await api('static'); applyConfig(); }
+
+VIEWS.admin = async v => {
+  const roles = ['admin'];
+  if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'Admin', 'एडमिन'); }
+  const tabs = [['places', 'Places', 'स्थान'], ['routes', 'Routes', 'रास्ते'], ['households', 'Households', 'घर'], ['fleet', 'Fleet, users, rates', 'वाहन, यूज़र, दरें'], ['data', 'Data', 'डेटा']];
+  v.innerHTML = `<div class="seg" style="margin-bottom:12px" id="aTabs">${tabs.map(t => `<button data-t="${t[0]}" class="${adminTab === t[0] ? 'on good' : ''}">${esc(T(t[1], t[2]))}</button>`).join('')}</div><div id="aBody"></div>`;
+  $$('#aTabs button').forEach(b => b.onclick = () => { adminTab = b.dataset.t; route(); });
+  const body = $('#aBody');
+  try {
+    if (adminTab === 'places') await adminPlaces(body);
+    else if (adminTab === 'routes') await adminRoutes(body);
+    else if (adminTab === 'households') await adminHouseholds(body);
+    else if (adminTab === 'fleet') await adminFleet(body);
+    else await adminData(body);
+  } catch (e) { body.innerHTML = `<div class="card"><p>${esc(e.message)}</p></div>`; }
+};
+
+/* ---------- Places ---------- */
+const PLACE_FIELDS = () => [
+  { k: 'Name', label: T('Name', 'नाम') }, { k: 'Type', label: T('Type', 'प्रकार'), type: 'select', opts: PTYPES },
+  { k: 'Colony', label: T('Colony or market', 'कॉलोनी या बाज़ार') }, { k: 'RoadID', label: T('Road ID (example DPO-R003)', 'सड़क ID (जैसे DPO-R003)') },
+  { k: 'Lat', label: T('Latitude', 'अक्षांश'), type: 'number', step: 'any' }, { k: 'Lng', label: T('Longitude', 'देशांतर'), type: 'number', step: 'any' },
+  { k: 'Notes', label: T('Notes', 'टिप्पणी') }, { k: 'Active', label: T('Active', 'सक्रिय'), type: 'select', opts: [['1', 'Yes'], ['0', 'No']] },
+];
+async function savePlace(obj) {
+  await api('save', { tab: 'Places', data: JSON.stringify(obj) });
+  await refreshStatic(); toast(T('Saved', 'सेव हुआ')); route();
+}
+async function adminPlaces(el) {
+  const d = await api('list', { tab: 'Places' }); const rows = d.rows;
+  el.innerHTML = `<div class="grid g2">
+    <div class="card"><div class="row"><h3 style="margin:0">${esc(T('Map of places', 'स्थानों का नक्शा'))}</h3></div><p class="muted">${esc(T('Tap an empty spot on the map to add a place there. Tap a marker to edit it.', 'नक्शे पर खाली जगह छूकर वहाँ स्थान जोड़ें। मार्कर छूकर बदलें।'))}</p><div id="aMap" class="map tall"></div></div>
+    <div class="card"><div class="row"><select id="aType" class="i" style="width:auto"><option value="">${esc(T('All types', 'सभी प्रकार'))}</option>${PTYPES.map(t => `<option>${t}</option>`).join('')}</select><input id="aQ" class="i" placeholder="${esc(T('Search', 'खोजें'))}" style="flex:1;min-width:120px"><button id="aAdd" class="btn sm">+ ${esc(T('Add', 'जोड़ें'))}</button></div>
+      <div class="scroll" style="margin-top:8px;max-height:400px"><table><thead><tr><th>ID</th><th>${esc(T('Name', 'नाम'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th></th></tr></thead><tbody id="aRows"></tbody></table></div>
+      <div class="row" style="margin-top:10px"><button id="aPaste" class="btn alt sm">${esc(T('Paste a list', 'सूची पेस्ट करें'))}</button><button id="aGps" class="btn alt sm">📍 ${esc(T('Add at my GPS', 'मेरी GPS पर जोड़ें'))}</button><button id="aImp" class="btn alt sm">${esc(T('Import survey dump sites', 'सर्वे के कचरा स्थल लाएँ'))}</button></div>
+      <p class="muted" id="aCount" style="margin-top:6px"></p></div></div>`;
+  const m = makeMap($('#aMap'), { zoom: 15 }); S.maps.aMap = m;
+  const layer = L.layerGroup().addTo(m);
+  function draw() {
+    const ty = $('#aType').value, q = $('#aQ').value.toLowerCase();
+    const list = rows.filter(r => (!ty || r.Type === ty) && (!q || (r.Name + ' ' + r.Colony + ' ' + r.PlaceID).toLowerCase().indexOf(q) >= 0));
+    $('#aRows').innerHTML = list.map(r => `<tr style="${String(r.Active) === '0' ? 'opacity:.5' : ''}"><td>${esc(r.PlaceID)}</td><td>${esc(r.Name)}${String(r.Source) === 'PLACEHOLDER' ? ' <span class="tag partly">placeholder</span>' : ''}<div class="muted">${esc(r.Colony || '')} ${esc(r.RoadID || '')}</div></td><td>${esc(r.Type)}</td><td><button class="btn sm grey" data-e="${esc(r.PlaceID)}">${esc(T('Edit', 'बदलें'))}</button></td></tr>`).join('');
+    $$('[data-e]', el).forEach(b => b.onclick = () => edit(rows.find(r => r.PlaceID === b.dataset.e)));
+    layer.clearLayers();
+    list.filter(r => String(r.Active) !== '0').forEach(r => { placeMarker(r, null).on('click', () => {}).addTo(layer); });
+    $('#aCount').textContent = list.length + ' / ' + rows.length + ' ' + T('places', 'स्थान');
+  }
+  async function edit(row, extra) {
+    const vals = Object.assign({ Type: 'Pickup Point', Active: '1' }, row || {}, extra || {});
+    const o = await editor(row ? T('Edit place', 'स्थान बदलें') : T('New place', 'नया स्थान'), PLACE_FIELDS(), vals);
+    if (!o) return;
+    if (row) { o.PlaceID = row.PlaceID; o.Source = row.Source === 'PLACEHOLDER' ? 'LIVE' : row.Source; }
+    try { await savePlace(o); } catch (e) { toast(e.message, true); }
+  }
+  m.on('click', e => edit(null, { Lat: e.latlng.lat.toFixed(6), Lng: e.latlng.lng.toFixed(6) }));
+  const pts = rows.filter(r => num(r.Lat)).map(r => [num(r.Lat), num(r.Lng)]);
+  if (pts.length) { const core = rows.filter(r => r.Type !== 'Dump Site' && num(r.Lat)).map(r => [num(r.Lat), num(r.Lng)]); m.fitBounds(L.latLngBounds(core.length ? core : pts).pad(.3)); }
+  $('#aType').onchange = draw; $('#aQ').oninput = draw; draw();
+  $('#aAdd').onclick = () => { const c = m.getCenter(); edit(null, { Lat: c.lat.toFixed(6), Lng: c.lng.toFixed(6) }); };
+  $('#aGps').onclick = () => {
+    if (!navigator.geolocation) return toast('GPS not available', true);
+    navigator.geolocation.getCurrentPosition(p => edit(null, { Lat: p.coords.latitude.toFixed(6), Lng: p.coords.longitude.toFixed(6) }), e => toast(e.message, true), { enableHighAccuracy: true });
+  };
+  $('#aImp').onclick = async () => { $('#aImp').disabled = true; try { const r = await api('importSurvey', {}, { timeout: 40000 }); await refreshStatic(); toast(T('Imported ', 'लाए गए ') + r.imported + T(' dump sites', ' कचरा स्थल')); route(); } catch (e) { toast(e.message, true); $('#aImp').disabled = false; } };
+  $('#aPaste').onclick = () => {
+    const mm = modal(`<h3>${esc(T('Paste a list of places', 'स्थानों की सूची पेस्ट करें'))}</h3><p class="muted">${esc(T('One place per line: Name, latitude, longitude, Type (optional), Colony (optional). Example:', 'हर लाइन में एक स्थान: नाम, अक्षांश, देशांतर, प्रकार (वैकल्पिक), कॉलोनी (वैकल्पिक)। उदाहरण:'))}<br><code>Toli Hotel gate, 27.990032, 94.221563, Pickup Point, Gandhi Market</code></p><textarea class="i" id="pasteTxt" rows="9"></textarea><div class="row" style="margin-top:12px"><button class="btn" id="pasteGo">${esc(T('Import', 'इम्पोर्ट'))}</button><button class="btn grey" id="pasteNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="pasteMsg"></p>`);
+    $('#pasteNo').onclick = mm.close;
+    $('#pasteGo').onclick = async () => {
+      const list = [];
+      $('#pasteTxt').value.split(/\n/).forEach(line => { const p = line.split(/[,\t]/).map(s => s.trim()); if (p.length >= 3 && isFinite(p[1]) && isFinite(p[2]) && p[0]) list.push({ Name: p[0], Lat: p[1], Lng: p[2], Type: p[3] || 'Pickup Point', Colony: p[4] || '' }); });
+      if (!list.length) { $('#pasteMsg').textContent = T('No valid lines found.', 'कोई सही लाइन नहीं मिली।'); return; }
+      post('importPlaces', { data: list }); mm.close(); toast(T('Importing ', 'इम्पोर्ट हो रहा ') + list.length + '…');
+      setTimeout(async () => { await refreshStatic(); route(); }, 3500);
+    };
+  };
+}
+
+/* ---------- Routes ---------- */
+async function adminRoutes(el) {
+  const rd = await api('list', { tab: 'Routes' });
+  const pd = await api('list', { tab: 'Places' });
+  const places = pd.rows.filter(p => String(p.Active) !== '0'); const pl = {}; places.forEach(p => pl[p.PlaceID] = p);
+  const RB = { routes: rd.rows, cur: null, stops: [], mode: 'driving-car', plan: null, orig: '' };
+  el.innerHTML = `<div class="grid g2">
+    <div class="grid" style="align-content:start">
+      <div class="card"><div class="row"><h3 style="margin:0">${esc(T('Routes', 'रास्ते'))}</h3><div class="sp"></div><button class="btn sm" id="rNew">+ ${esc(T('New route', 'नया रास्ता'))}</button></div><div id="rList" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:10px"><button class="btn alt sm" id="rAll">${esc(T('Draw all routes on roads', 'सभी रास्ते सड़कों पर बनाएँ'))}</button></div><p class="muted" id="rAllMsg"></p></div>
+      <div class="card" id="rEdit"></div>
+    </div>
+    <div class="card"><h3>${esc(T('Route on the map', 'नक्शे पर रास्ता'))}</h3><div id="rMap" class="map tall"></div><div id="rSum" class="muted" style="margin-top:8px"></div></div></div>`;
+  const m = makeMap($('#rMap'), { zoom: 15 }); S.maps.rMap = m;
+  const lg = L.layerGroup().addTo(m);
+  function list() {
+    $('#rList').innerHTML = RB.routes.map(r => `<div class="row" style="padding:7px 0;border-bottom:1px solid var(--line)"><div><b>${esc(r.Name)}</b><div class="muted">${esc(r.RouteID)} · ${ids(r).length} ${esc(T('stops', 'पड़ाव'))} · ${r.hasGeometry ? '✔ ' + esc(T('on roads', 'सड़कों पर')) + ' ' + (r.DistanceKm || '') + ' km' : esc(T('straight lines only', 'सीधी रेखाएँ'))}</div></div><div class="sp"></div><button class="btn sm ${RB.cur && RB.cur.RouteID === r.RouteID ? '' : 'alt'}" data-r="${esc(r.RouteID)}">${esc(T('Open', 'खोलें'))}</button></div>`).join('') || `<p class="muted">—</p>`;
+    $$('[data-r]', el).forEach(b => b.onclick = () => open(RB.routes.find(r => r.RouteID === b.dataset.r)));
+  }
+  async function open(r) {
+    RB.cur = r; RB.stops = r ? ids(r) : []; RB.mode = r ? (r.Mode || 'driving-car') : 'driving-car'; RB.plan = null; RB.orig = RB.stops.join(',');
+    list(); form();
+    if (r && r.hasGeometry) { try { const g = await api('route', { id: r.RouteID }); RB.plan = { geometry: g.geometry, distanceKm: r.DistanceKm, durationMin: r.DurationMin, saved: true, onRoad: true }; } catch (e) {} }
+    drawMap();
+  }
+  function form() {
+    const r = RB.cur;
+    const addOpts = PTYPES.map(t => { const g = places.filter(p => p.Type === t); return g.length ? `<optgroup label="${t}">${g.map(p => `<option value="${esc(p.PlaceID)}">${esc(p.Name)}</option>`).join('')}</optgroup>` : ''; }).join('');
+    $('#rEdit').innerHTML = `<h3>${r && r.RouteID ? esc(r.RouteID) : esc(T('New route', 'नया रास्ता'))}</h3>
+      <label class="f">${esc(T('Name', 'नाम'))}</label><input class="i" id="rName" value="${esc(r ? r.Name : '')}">
+      <label class="f">${esc(T('Vehicle type', 'वाहन प्रकार'))}</label><select class="i" id="rMode"><option value="driving-car" ${RB.mode === 'driving-car' ? 'selected' : ''}>${esc(T('Road vehicle (truck or pickup)', 'सड़क वाहन (ट्रक या पिकअप)'))}</option><option value="foot-walking" ${RB.mode === 'foot-walking' ? 'selected' : ''}>${esc(T('Walking (handcart, survey)', 'पैदल (हाथगाड़ी, सर्वे)'))}</option></select>
+      <label class="f">${esc(T('Stops in order (first = depot, last = MRF)', 'पड़ाव क्रम से (पहला = डिपो, आख़िरी = एमआरएफ)'))}</label>
+      <ol class="stops" id="rStops" style="padding:0"></ol>
+      <div class="row" style="margin-top:6px"><select class="i" id="rAdd" style="flex:1">${addOpts}</select><button class="btn sm" id="rAddB">+ ${esc(T('Add stop', 'पड़ाव जोड़ें'))}</button></div>
+      <label class="row muted" style="margin-top:10px"><input type="checkbox" id="rOpt" checked> ${esc(T('Find the shortest order of the middle stops', 'बीच के पड़ावों का सबसे छोटा क्रम खोजें'))}</label>
+      <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">${esc(T('Use my own road coordinates (from the map)', 'अपने सड़क निर्देशांक डालें (नक्शे से)'))}</summary>
+        <p class="muted" style="margin:6px 0">${esc(T('Paste points along the road, one per line, as: latitude, longitude. Copy them from Google Maps (right-click, click the numbers). First point near the depot, last near the MRF. 2 to 500 points.', 'सड़क के साथ बिंदु पेस्ट करें, हर लाइन में: अक्षांश, देशांतर। Google Maps में राइट-क्लिक करके नंबर कॉपी करें। पहला बिंदु डिपो के पास, आख़िरी एमआरएफ के पास। 2 से 500 बिंदु।'))}</p>
+        <textarea class="i" id="rPaste" rows="6" placeholder="27.98601, 94.22049&#10;27.98720, 94.22051"></textarea>
+        <div class="row" style="margin-top:6px"><button class="btn sm" id="rUse">${esc(T('Use these coordinates', 'ये निर्देशांक इस्तेमाल करें'))}</button></div></details>
+      <div class="row" style="margin-top:10px"><button class="btn alt" id="rPrev">${esc(T('Preview on roads', 'सड़कों पर देखें'))}</button><button class="btn" id="rSave">${esc(T('Save route', 'रास्ता सेव करें'))}</button>${r && r.RouteID ? `<button class="btn bad sm" id="rDel">${esc(T('Delete', 'हटाएँ'))}</button>` : ''}</div><p class="muted" id="rMsg"></p>`;
+    stopsList();
+    $('#rAddB').onclick = () => { RB.stops.push($('#rAdd').value); RB.plan = null; stopsList(); drawMap(); };
+    $('#rMode').onchange = e => { RB.mode = e.target.value; };
+    $('#rPrev').onclick = preview; $('#rSave').onclick = save; $('#rUse').onclick = useCoords;
+    if ($('#rDel')) $('#rDel').onclick = async () => { if (!confirm(T('Delete this route?', 'यह रास्ता हटाएँ?'))) return; try { await api('del', { tab: 'Routes', id: RB.cur.RouteID }); await refreshStatic(); route(); } catch (e) { toast(e.message, true); } };
+  }
+  function stopsList() {
+    $('#rStops').innerHTML = RB.stops.map((id, i) => `<li><span class="no">${i + 1}</span><div style="flex:1"><b>${esc(pl[id] ? pl[id].Name : id)}</b><div class="muted">${esc(pl[id] ? pl[id].Type : '?')}</div></div><button class="btn sm grey" data-u="${i}">▲</button><button class="btn sm grey" data-d="${i}">▼</button><button class="btn sm grey" data-x="${i}">✕</button></li>`).join('');
+    const mv = (i, j) => { if (j < 0 || j >= RB.stops.length) return; const t = RB.stops[i]; RB.stops[i] = RB.stops[j]; RB.stops[j] = t; RB.plan = null; stopsList(); drawMap(); };
+    $$('[data-u]', el).forEach(b => b.onclick = () => mv(+b.dataset.u, +b.dataset.u - 1));
+    $$('[data-d]', el).forEach(b => b.onclick = () => mv(+b.dataset.d, +b.dataset.d + 1));
+    $$('[data-x]', el).forEach(b => b.onclick = () => { RB.stops.splice(+b.dataset.x, 1); RB.plan = null; stopsList(); drawMap(); });
+  }
+  function drawMap() {
+    lg.clearLayers();
+    const pts = RB.stops.map(id => pl[id]).filter(Boolean);
+    pts.forEach((p, i) => placeMarker(p, i === 0 ? 'D' : i === pts.length - 1 ? 'M' : i).addTo(lg));
+    const line = RB.plan && RB.plan.geometry && RB.plan.geometry.length > 1 ? RB.plan.geometry : pts.map(p => [num(p.Lat), num(p.Lng)]);
+    if (line.length > 1) { L.polyline(line, { color: '#1E88E5', weight: 5, opacity: .8, dashArray: RB.plan && RB.plan.onRoad ? null : '6 8' }).addTo(lg); m.fitBounds(L.latLngBounds(line).pad(.2)); }
+    const p = RB.plan;
+    $('#rSum').innerHTML = p ? `<b>${p.distanceKm} km</b> · ${p.durationMin} min${p.savedPct ? ` · ${esc(T('shorter by ', 'छोटा '))}<b>${p.savedPct}%</b> ${esc(T('than your order', 'आपके क्रम से'))} (${p.originalKm} → ${p.optimisedKm} km)` : ''}${p.onRoad ? '' : ' · ' + esc(T('straight lines (not on roads yet)', 'सीधी रेखाएँ (अभी सड़कों पर नहीं)'))}${p.approx ? ' · ' + esc(T('distance estimated', 'दूरी अनुमानित')) : ''}${p.note ? '<br>' + esc(p.note) : ''}` : esc(T('Preview the route to see distance and time.', 'दूरी और समय देखने के लिए रास्ता देखें।'));
+  }
+  function useCoords() {
+    const pts = [];
+    $('#rPaste').value.split(/\n/).forEach(line => {
+      const m2 = line.match(/(-?\d+\.\d+)\s*[,;\s]\s*(-?\d+\.\d+)/); if (!m2) return;
+      let a = parseFloat(m2[1]), b = parseFloat(m2[2]); if (a > 60 && b < 60) { const t = a; a = b; b = t; }
+      pts.push([a, b]);
+    });
+    const bad = pts.filter(p => !(p[0] > 27.5 && p[0] < 28.5 && p[1] > 93.7 && p[1] < 94.7));
+    if (pts.length < 2) return toast(T('Need at least 2 points, one per line.', 'कम से कम 2 बिंदु चाहिए, हर लाइन में एक।'), true);
+    if (bad.length) return toast(T('Some points are outside Daporijo. Check the numbers.', 'कुछ बिंदु दापोरिजो के बाहर हैं। नंबर जाँचें।'), true);
+    let g = pts;
+    if (g.length > 500) { const out = []; for (let i = 0; i < 500; i++) out.push(g[Math.round(i * (g.length - 1) / 499)]); g = out; }
+    g = g.map(p => [Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5]);
+    let m = 0; for (let i = 1; i < g.length; i++) m += hav(g[i - 1][0], g[i - 1][1], g[i][0], g[i][1]);
+    const far = RB.stops.map(id => pl[id]).filter(Boolean).filter(p => Math.min.apply(null, g.map(q => hav(num(p.Lat), num(p.Lng), q[0], q[1]))) > 60).map(p => p.Name);
+    RB.plan = { geometry: g, distanceKm: Math.round(m / 10) / 100, durationMin: Math.max(1, Math.round(m / 1000 / num(S.st.config.AvgSpeedKmh, 20) * 60)), onRoad: true, saved: false, note: T('Road line from your coordinates.', 'आपके निर्देशांक से सड़क रेखा।') + (far.length ? ' ' + T('Stops more than 60 m from the line: ', '60 मीटर से दूर पड़ाव: ') + far.join(', ') + '.' : '') };
+    drawMap(); $('#rMsg').textContent = T('Now press Save route.', 'अब रास्ता सेव करें दबाएँ।');
+  }
+  async function preview() {
+    if (RB.stops.length < 2) return toast(T('Add at least two stops.', 'कम से कम दो पड़ाव जोड़ें।'), true);
+    $('#rMsg').textContent = T('Planning on roads…', 'सड़कों पर रास्ता बन रहा है…');
+    try {
+      const d = await api('plan', { stops: RB.stops.join(','), mode: RB.mode, optimise: $('#rOpt').checked ? 1 : 0 }, { timeout: 45000 });
+      RB.plan = d; RB.stops = d.order; stopsList(); drawMap(); $('#rMsg').textContent = '';
+    } catch (e) { $('#rMsg').textContent = e.message; }
+  }
+  async function save() {
+    const name = $('#rName').value.trim(); if (!name) return toast(T('Give the route a name.', 'रास्ते को नाम दें।'), true);
+    if (RB.stops.length < 2) return toast(T('Add at least two stops.', 'कम से कम दो पड़ाव जोड़ें।'), true);
+    const btn = $('#rSave'); btn.disabled = true;
+    try {
+      const data = { Name: name, Mode: RB.mode, StopPlaceIDs: RB.stops.join(',') };
+      if (RB.cur && RB.cur.RouteID) data.RouteID = RB.cur.RouteID;
+      const fresh = RB.plan && !RB.plan.saved;
+      if (!fresh && RB.stops.join(',') !== RB.orig) data.GeometryJSON = '';
+      if (fresh) { data.DistanceKm = RB.plan.distanceKm; data.DurationMin = RB.plan.durationMin; }
+      const r = await api('save', { tab: 'Routes', data: JSON.stringify(data) });
+      if (fresh) {
+        post('saveRouteGeometry', { routeId: r.row.RouteID, stops: RB.stops.join(','), geometry: RB.plan.geometry, distanceKm: RB.plan.distanceKm, durationMin: RB.plan.durationMin });
+        await new Promise(res => setTimeout(res, 2500));
+        const chk = await api('route', { id: r.row.RouteID });
+        if (!chk.geometry.length) toast(T('Route saved but the road line did not save. Press Save again.', 'रास्ता सेव हुआ पर सड़क की रेखा नहीं। फिर सेव दबाएँ।'), true);
+      }
+      await refreshStatic(); toast(T('Route saved', 'रास्ता सेव हुआ')); route();
+    } catch (e) { toast(e.message, true); btn.disabled = false; }
+  }
+  $('#rNew').onclick = () => {
+    const dep = places.find(p => p.Type === 'Depot'), mrf = places.find(p => p.Type === 'MRF');
+    open({ Name: '', Mode: 'driving-car', StopPlaceIDs: [dep, mrf].filter(Boolean).map(p => p.PlaceID).join(',') });
+    RB.orig = '';
+  };
+  $('#rAll').onclick = async () => {
+    const msg = $('#rAllMsg'); $('#rAll').disabled = true; let ok = 0;
+    for (const r of RB.routes) {
+      msg.textContent = T('Drawing ', 'बन रहा है ') + r.Name + '…';
+      try {
+        const d = await api('plan', { stops: r.StopPlaceIDs, mode: r.Mode || 'driving-car', optimise: 0 }, { timeout: 45000 });
+        if (!d.onRoad) { msg.textContent = d.note || 'No road route'; continue; }
+        post('saveRouteGeometry', { routeId: r.RouteID, stops: d.order.join(','), geometry: d.geometry, distanceKm: d.distanceKm, durationMin: d.durationMin });
+        await new Promise(res => setTimeout(res, 2200)); ok++;
+      } catch (e) { msg.textContent = r.Name + ': ' + e.message; }
+    }
+    await refreshStatic(); toast(T('Roads drawn for ', 'सड़कें बनीं ') + ok + T(' routes', ' रास्तों के लिए')); route();
+  };
+  list(); form(); if (RB.routes.length) open(RB.routes[0]);
+}
+
+/* ---------- generic table editor ---------- */
+async function crud(el, cfg) {
+  const d = await api('list', { tab: cfg.tab });
+  el.innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row"><h3 style="margin:0">${esc(cfg.title)}</h3><div class="sp"></div>${cfg.noAdd ? '' : `<button class="btn sm" data-add>+ ${esc(T('Add', 'जोड़ें'))}</button>`}${cfg.extra || ''}</div>
+    <div class="scroll" style="margin-top:8px"><table><thead><tr>${cfg.cols.map(c => `<th>${esc(c[1])}</th>`).join('')}<th></th></tr></thead><tbody>${d.rows.map((r, i) => `<tr>${cfg.cols.map(c => `<td>${esc(c[2] ? c[2](r) : r[c[0]])}</td>`).join('')}<td style="white-space:nowrap"><button class="btn sm grey" data-e="${i}">${esc(T('Edit', 'बदलें'))}</button>${cfg.noDel ? '' : ` <button class="btn sm grey" data-x="${i}">✕</button>`}</td></tr>`).join('')}</tbody></table></div></div>`;
+  const key = { Households: 'HouseholdID', Vehicles: 'VehicleID', Users: 'UserID', Rates: 'Category' }[cfg.tab];
+  const edit = async row => {
+    const o = await editor(row ? T('Edit', 'बदलें') : T('Add', 'जोड़ें'), cfg.fields(), Object.assign({}, cfg.defaults || {}, row || {}));
+    if (!o) return; if (row) o[key] = row[key];
+    try { if (cfg.before) cfg.before(o); await api('save', { tab: cfg.tab, data: JSON.stringify(o) }); await refreshStatic(); toast(T('Saved', 'सेव हुआ')); route(); } catch (e) { toast(e.message, true); }
+  };
+  $$('[data-add]', el).forEach(b => b.onclick = () => edit(null));
+  $$('[data-e]', el).forEach(b => b.onclick = () => edit(d.rows[+b.dataset.e]));
+  $$('[data-x]', el).forEach(b => b.onclick = async () => { const r = d.rows[+b.dataset.x]; if (!confirm(T('Delete ', 'हटाएँ ') + r[key] + '?')) return; try { await api('del', { tab: cfg.tab, id: r[key] }); await refreshStatic(); route(); } catch (e) { toast(e.message, true); } });
+  return d.rows;
+}
+
+/* ---------- Households ---------- */
+function printArea(html) { const p = $('#printArea'); p.innerHTML = html; setTimeout(() => { window.print(); }, 300); }
+async function adminHouseholds(el) {
+  const pts = S.st.places.filter(p => p.Type === 'Pickup Point');
+  const holder = document.createElement('div'); el.appendChild(holder);
+  const rows = await crud(holder, {
+    tab: 'Households', title: T('Households', 'घर'), cols: [['HouseholdID', 'ID'], ['Label', T('Name', 'नाम')], ['PlaceID', T('Pickup point', 'पिकअप पॉइंट'), r => (PLACE(r.PlaceID) || {}).Name || r.PlaceID], ['Source', T('Source', 'स्रोत')]],
+    fields: () => [{ k: 'Label', label: T('Name of household or building', 'घर या भवन का नाम') }, { k: 'PlaceID', label: T('Pickup point', 'पिकअप पॉइंट'), type: 'select', opts: pts.map(p => [p.PlaceID, p.Name]) }, { k: 'Members', label: T('People', 'सदस्य'), type: 'number' }],
+    defaults: { Members: 4 }, before: o => { const p = PLACE(o.PlaceID); if (p) { o.Colony = p.Colony; o.Lat = num(o.Lat) || p.Lat; o.Lng = num(o.Lng) || p.Lng; } },
+    extra: `<button class="btn alt sm" id="hPrint">🖨 ${esc(T('Print bag tags', 'बैग टैग प्रिंट करें'))}</button>`,
+  });
+  $('#hPrint').onclick = () => {
+    printArea(rows.map(h => `<div class="tagcard"><div><div class="brand" style="justify-content:flex-start"><img src="logo.png" alt=""><span>WasteWise Daporijo<br>${esc(SCHOOL.name)}</span></div><b style="font-size:16pt">${esc(h.HouseholdID)}</b><div>${esc(h.Label)}</div><div style="font-size:9pt">${esc((PLACE(h.PlaceID) || {}).Name || '')}</div></div><div style="text-align:center"><img src="${qrImg('WW|' + h.HouseholdID + '|Wet', 5)}"><div><b>WET / गीला</b></div></div><div style="text-align:center"><img src="${qrImg('WW|' + h.HouseholdID + '|Dry', 5)}"><div><b>DRY / सूखा</b></div></div></div>`).join(''));
+  };
+}
+
+/* ---------- Fleet, users, rates ---------- */
+async function adminFleet(el) {
+  const a = document.createElement('div'), b = document.createElement('div'), c = document.createElement('div'); el.append(a, b, c);
+  await crud(a, { tab: 'Vehicles', title: T('Vehicles', 'वाहन'), cols: [['VehicleID', 'ID'], ['Name', T('Name', 'नाम')], ['Type', T('Type', 'प्रकार')], ['CapacityKg', 'kg'], ['RouteID', T('Default route', 'डिफ़ॉल्ट रास्ता')]],
+    fields: () => [{ k: 'Name', label: T('Name', 'नाम') }, { k: 'Type', label: T('Type', 'प्रकार') }, { k: 'CapacityKg', label: T('Capacity (kg)', 'क्षमता (किलो)'), type: 'number' }, { k: 'RouteID', label: T('Default route', 'डिफ़ॉल्ट रास्ता'), type: 'select', opts: S.st.routes.map(r => [r.RouteID, r.Name]) }, { k: 'Active', label: T('Active', 'सक्रिय'), type: 'select', opts: [['1', 'Yes'], ['0', 'No']] }], defaults: { Active: '1' } });
+  await crud(b, { tab: 'Users', title: T('Staff logins', 'स्टाफ लॉगिन'), cols: [['UserID', 'ID'], ['Name', T('Name', 'नाम')], ['Role', T('Role', 'भूमिका')], ['Passcode', T('Passcode', 'पासकोड'), r => '••••']],
+    fields: () => [{ k: 'Name', label: T('Name', 'नाम') }, { k: 'Role', label: T('Role', 'भूमिका'), type: 'select', opts: ['driver', 'mrf', 'incharge', 'admin'] }, { k: 'Passcode', label: T('Passcode (change the demo ones)', 'पासकोड (डेमो वाले बदलें)') }, { k: 'Active', label: T('Active', 'सक्रिय'), type: 'select', opts: [['1', 'Yes'], ['0', 'No']] }], defaults: { Active: '1', Role: 'driver' } });
+  await crud(c, { tab: 'Rates', title: T('Rates at the MRF (₹ per kg)', 'एमआरएफ दरें (₹ प्रति किलो)'), noAdd: true, noDel: true, cols: [['Category', T('Category', 'श्रेणी')], ['RatePerKg', '₹/kg'], ['Note', T('Note', 'टिप्पणी')]],
+    fields: () => [{ k: 'Category', label: T('Category', 'श्रेणी'), ro: true }, { k: 'RatePerKg', label: '₹/kg', type: 'number', step: '0.1' }, { k: 'Note', label: T('Note', 'टिप्पणी') }] });
+}
+
+/* ---------- Data ---------- */
+async function adminData(el) {
+  const demo = S.st.config.DemoMode;
+  const cnt = {}; S.st.places.forEach(p => { cnt[p.Type] = (cnt[p.Type] || 0) + 1; });
+  const ph = S.st.places.filter(p => /PLACEHOLDER/i.test(p.Name));
+  el.innerHTML = `<div class="grid g2">
+    <div class="card"><h3>${esc(T('Demo mode', 'डेमो मोड'))}: <span class="tag ${demo ? 'partly' : 'good'}">${demo ? 'ON' : 'OFF'}</span></h3>
+      <p class="muted">${esc(T('ON: new households, trips and pickups are tagged DEMO and can be wiped. OFF: they are saved as real (LIVE) records.', 'ON: नए घर, ट्रिप और पिकअप DEMO टैग होते हैं और मिटाए जा सकते हैं। OFF: वे असली (LIVE) रिकॉर्ड बनते हैं।'))}</p>
+      <div class="row" style="margin-top:8px"><button class="btn alt" id="dTog">${esc(demo ? T('Turn demo mode OFF', 'डेमो मोड बंद करें') : T('Turn demo mode ON', 'डेमो मोड चालू करें'))}</button><button class="btn bad" id="dWipe">${esc(T('Wipe demo data', 'डेमो डेटा मिटाएँ'))}</button></div>
+      <p class="muted" style="margin-top:8px">${esc(T('Wiping removes only rows tagged DEMO (sample trips, pickups, receipts, alerts, demo households). Real places and routes stay.', 'मिटाने पर सिर्फ DEMO टैग वाली पंक्तियाँ हटती हैं (नमूना ट्रिप, पिकअप, रसीद, अलर्ट, डेमो घर)। असली स्थान और रास्ते रहते हैं।'))}</p></div>
+    <div class="card"><h3>${esc(T('What is in the database', 'डेटाबेस में क्या है'))}</h3>
+      <ul class="feed">${Object.keys(cnt).map(k => `<li>${esc(k)}: <b>${cnt[k]}</b></li>`).join('')}<li>${esc(T('Routes', 'रास्ते'))}: <b>${S.st.routes.length}</b> · ${esc(T('Vehicles', 'वाहन'))}: <b>${S.st.vehicles.length}</b></li></ul>
+      ${ph.length ? `<p style="margin-top:8px"><span class="tag partly">${esc(T('To do', 'करना है'))}</span> ${esc(T('Set the real position of: ', 'असली स्थान डालें: '))}${ph.map(p => esc(p.Name)).join('; ')} (Places tab).</p>` : ''}</div>
+    <div class="card"><h3>${esc(T('Print', 'प्रिंट'))}</h3><div class="row"><button class="btn alt" id="dPoster">${esc(T('Citizen QR poster', 'नागरिक QR पोस्टर'))}</button></div><p class="muted" style="margin-top:6px">${esc(T('Visitors scan the poster to register and follow the truck. Bag tags are printed from the Households tab.', 'आगंतुक पोस्टर स्कैन कर पंजीकरण करते और ट्रक देखते हैं। बैग टैग घर टैब से प्रिंट होते हैं।'))}</p></div>
+    <div class="card"><h3>${esc(T('How to feed real data', 'असली डेटा कैसे जोड़ें'))}</h3><ol style="padding-left:18px"><li>${esc(T('Places: tap the map or paste a list (Places tab).', 'स्थान: नक्शा छूएँ या सूची पेस्ट करें।'))}</li><li>${esc(T('Routes: pick stops in order, Preview on roads, Save.', 'रास्ते: पड़ाव क्रम से चुनें, सड़कों पर देखें, सेव करें।'))}</li><li>${esc(T('Households: add them or let people register themselves.', 'घर: जोड़ें या लोग खुद पंजीकरण करें।'))}</li><li>${esc(T('Turn demo mode OFF and wipe demo data.', 'डेमो मोड बंद करें और डेमो डेटा मिटाएँ।'))}</li></ol></div></div>`;
+  $('#dTog').onclick = async () => { try { await api('save', { tab: 'Config', data: JSON.stringify({ Key: 'DemoMode', Value: demo ? '0' : '1' }) }); await refreshStatic(); route(); } catch (e) { toast(e.message, true); } };
+  $('#dWipe').onclick = async () => { if (!confirm(T('Wipe all DEMO data?', 'सारा DEMO डेटा मिटाएँ?'))) return; try { const r = await api('clearDemo', {}, { timeout: 60000 }); toast(T('Removed: ', 'हटाया: ') + Object.keys(r.removed).map(k => k + ' ' + r.removed[k]).join(', ')); } catch (e) { toast(e.message, true); } };
+  $('#dPoster').onclick = () => {
+    const url = location.href.split('#')[0] + '#/citizen';
+    printArea(`<div class="poster"><img src="logo.png" style="width:30mm" onerror="this.style.display='none'"><h1>WasteWise Daporijo</h1><p style="margin:0 0 6mm"><b>${esc(SCHOOL.name)}</b>, Daporijo<br>${esc(SCHOOL.event)} · ${esc(SCHOOL.theme)}</p><h2>Scan to register and see your truck<br>स्कैन करें, पंजीकरण करें और अपना ट्रक देखें</h2><img src="${qrImg(url, 8)}"><p style="font-size:11pt;word-break:break-all">${esc(url)}</p><p style="font-size:10pt;margin-top:8mm">Team: ${esc(SCHOOL.team)} · Guide teacher: ${esc(SCHOOL.guide)}</p></div>`);
+  };
+}
+</script>
+</body>
+</html>
