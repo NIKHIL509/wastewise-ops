@@ -28,7 +28,14 @@ a{color:var(--green2)}
 .top .ttl{font-weight:700;font-size:16px;line-height:1.1}
 .top .sub{font-size:11px;opacity:.8}
 .top .sp{flex:1}
+.tk3{position:relative;width:46px;height:46px}.tk3 .ring{position:absolute;left:5px;top:5px;width:36px;height:36px;border-radius:50%;background:rgba(46,125,50,.28);animation:tkring 1.6s ease-out infinite}
+.tk3 .tkb{position:absolute;left:10px;top:0;width:26px;height:46px;transform-origin:13px 23px;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.tk3 .tkl{position:absolute;left:50%;top:44px;transform:translateX(-50%);white-space:nowrap;background:#17231A;color:#fff;border-radius:9px;padding:1px 7px;font-size:11px;font-weight:700;box-shadow:0 2px 5px rgba(0,0,0,.3)}
+.tk3 *{pointer-events:none}.leaflet-marker-icon:has(.tk3.stopped) .ring,.stopped .ring{background:rgba(251,140,0,.35);animation-duration:2.6s}
+.stale .ring{background:rgba(198,40,40,.4)}.stale .tkb{opacity:.6}
+@keyframes tkring{0%{transform:scale(.55);opacity:.9}100%{transform:scale(1.35);opacity:0}}
 body.gate #nav{display:none}
+#nav a.out{margin-left:auto;color:#b3261b;font-weight:700}
 .gate-card{max-width:440px;margin:18px auto;text-align:center}.gate-card .lg{display:flex;gap:14px;justify-content:center;align-items:center;margin-bottom:8px}.gate-card .lg img{width:76px;height:76px;border-radius:14px}.gate-card .lg img.sc{border-radius:50%}.gate-card .i{font-size:18px;text-align:center;letter-spacing:1px}
 .opsw{white-space:nowrap}.opsbig{white-space:nowrap}
 .opsw .cut{display:inline-flex}
@@ -103,9 +110,9 @@ th{font-size:12px;color:var(--ink2);font-weight:600;background:#F7FAF7;position:
 .qrc.wet{border-color:var(--wet)} .qrc.dry{border-color:var(--dry)}
 .ring{--p:0;width:92px;height:92px;border-radius:50%;background:conic-gradient(var(--green2) calc(var(--p)*1%),#E4EAE5 0);display:grid;place-items:center;flex:none}
 .ring b{background:#fff;width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:21px}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#17231A;color:#fff;border-radius:12px;padding:11px 16px;z-index:300;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:14px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#17231A;color:#fff;border-radius:12px;padding:11px 16px;z-index:3000;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:14px}
 .toast.err{background:var(--bad)}
-.modal{position:fixed;inset:0;background:rgba(10,25,14,.55);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{position:fixed;inset:0;background:rgba(10,25,14,.55);z-index:2000;display:flex;align-items:flex-end;justify-content:center}
 .modal .box{background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px;max-height:92vh;overflow:auto}
 @media(min-width:700px){.modal{align-items:center}.modal .box{border-radius:18px}}
 .hero{display:grid;gap:12px}
@@ -120,7 +127,7 @@ th{font-size:12px;color:var(--ink2);font-weight:600;background:#F7FAF7;position:
 .feed li{list-style:none;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
 .mk{display:grid;place-items:center;border-radius:50%;color:#fff;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .truck{font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));transform:translate(-4px,-4px)}
-.leaflet-container{font-family:inherit}
+.leaflet-container{font-family:inherit;isolation:isolate;z-index:0}
 /* command screen */
 body.screenmode{background:#0C1A10;color:#EAF3EC}
 body.screenmode .top,body.screenmode .nav,body.screenmode .ribbon{display:none}
@@ -197,7 +204,7 @@ const SCHOOL = {
   title: 'Project on Solid Waste Segregation (WasteWise Daporijo)',
   team: 'Yumgam Sorum Tamin · David Pakri Nirin (Class 9)', guide: 'Nikhil Anil',
 };
-const S = { st: null, token: null, role: null, name: null, live: null, paths: {}, timers: [], maps: {}, view: null, hh: null, gen: 0 };
+const S = { st: null, token: null, role: null, name: null, live: null, paths: {}, timers: [], maps: {}, view: null, hh: null, gen: 0, anims: [] };
 try { S.token = sessionStorage.getItem('ww_tok'); S.role = sessionStorage.getItem('ww_role'); S.name = sessionStorage.getItem('ww_name'); } catch (e) {}
 let LANG = 'mix';
 try { LANG = localStorage.getItem('ww_lang') || 'mix'; } catch (e) {}
@@ -359,6 +366,95 @@ function fmtEta(sec) {
   return Math.round(sec / 60) + T(' min', ' मिनट');
 }
 
+
+/* ---------- smooth truck animation (used by every role) ---------- */
+function bearing(a, b) { const p = Math.PI / 180, dl = (b[1] - a[1]) * p * Math.cos(a[0] * p), dg = (b[0] - a[0]) * p; return (Math.atan2(dl, dg) / p + 360) % 360; }
+function truckIconHtml(label) {
+  return `<div class="tk3"><div class="ring"></div><div class="tkb"><svg viewBox="0 0 24 42" width="26" height="46"><rect x="3" y="15" width="18" height="25" rx="3" fill="#2E7D32" stroke="#fff" stroke-width="1.5"/><rect x="5" y="17.5" width="14" height="20" rx="2" fill="#43A047"/><rect x="4" y="2" width="16" height="14" rx="4.5" fill="#1B5E20" stroke="#fff" stroke-width="1.5"/><rect x="6.2" y="4.2" width="11.6" height="4.6" rx="1.5" fill="#CFE8FF"/><circle cx="7" cy="2.6" r="1.2" fill="#FFF59D"/><circle cx="17" cy="2.6" r="1.2" fill="#FFF59D"/></svg></div>${label ? '<div class="tkl"></div>' : ''}</div>`;
+}
+function truckLayer(map, opts) {
+  opts = opts || {};
+  const items = {}; let raf = 0, last = 0, slowT = 0, dead = false;
+  const api_ = { items, map };
+  const nameOf = t => (VEH(t.VehicleID) || {}).Name || t.TripID;
+  function posAt(path, d) {
+    const cum = path.cum, pts = path.pts, n = pts.length;
+    if (d <= 0) return { ll: pts[0], i: 0 };
+    if (d >= path.total) return { ll: pts[n - 1], i: n - 1 };
+    let lo = 0, hi = n - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= d) lo = mid; else hi = mid; }
+    const f = (d - cum[lo]) / ((cum[hi] - cum[lo]) || 1), a = pts[lo], b = pts[hi];
+    return { ll: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], i: lo };
+  }
+  function setHeading(it, deg) {
+    let diff = ((deg - it.hd + 540) % 360) - 180; it.hd = (it.hd + diff * 0.18 + 360) % 360;
+    if (it.body) it.body.style.transform = `rotate(${it.hd.toFixed(1)}deg)`;
+  }
+  api_.sync = async function (trips) {
+    const g = S.gen; const have = new Set();
+    for (const t of trips) {
+      if (!t || !t.loc) continue;
+      const path = t.RouteID ? await getPath(t.RouteID) : null;
+      if (g !== S.gen || dead) return;
+      have.add(t.TripID);
+      let it = items[t.TripID];
+      const loc = t.loc, now = performance.now();
+      const tgt = path ? (loc.dist != null ? loc.dist : path.cum[Math.max(0, Math.min(Number(loc.gi) >= 0 ? Number(loc.gi) : 0, path.cum.length - 1))]) : 0;
+      if (!it) {
+        const p0 = path ? posAt(path, tgt) : { ll: [loc.lat, loc.lng], i: 0 };
+        const mk = L.marker(p0.ll, { icon: L.divIcon({ className: '', html: truckIconHtml(opts.label !== false), iconSize: [46, 46], iconAnchor: [23, 23] }), zIndexOffset: 1000, keyboard: false }).addTo(map);
+        mk.bindTooltip(nameOf(t), { direction: 'top', offset: [0, -22] });
+        const el = mk.getElement();
+        it = items[t.TripID] = { id: t.TripID, path, dist: tgt, tgt, spd: 0, ping: now, mk, el, body: el && el.querySelector('.tkb'), lbl: el && el.querySelector('.tkl'), hd: path ? bearing(posAt(path, Math.max(0, tgt - 8)).ll, posAt(path, tgt + 8).ll) : 0, trail: null, lastTrail: 0, ll: p0.ll };
+        setHeading(it, it.hd);
+        if (opts.trail && path) it.trail = L.polyline([], { color: '#1B5E20', weight: 6, opacity: .85, lineCap: 'round' }).addTo(map);
+        if (opts.onFirst) opts.onFirst(it.ll, t);
+      }
+      it.path = path; it.ping = now;
+      it.spd = Math.max(0, Number(loc.spd) || 0); it.tgt = tgt; it.fallback = path ? null : [loc.lat, loc.lng];
+      if (Math.abs(tgt - it.dist) > 500) it.dist = tgt;
+      if (loc.t) it.stale = (Date.now() - loc.t) > 20000;
+    }
+    Object.keys(items).forEach(k => { if (!have.has(k)) { try { map.removeLayer(items[k].mk); if (items[k].trail) map.removeLayer(items[k].trail); } catch (e) {} delete items[k]; } });
+    if (!raf && !dead) raf = requestAnimationFrame(frame);
+  };
+  function frame(ts) {
+    raf = 0; if (dead) return;
+    if (!map._container || !map._container.isConnected) { api_.destroy(); return; }
+    const dt = Math.min(0.12, (ts - (last || ts)) / 1000); last = ts;
+    const now = performance.now();
+    Object.keys(items).forEach(k => {
+      const it = items[k];
+      if (it.path) {
+        const age = Math.min((now - it.ping) / 1000, 3.5);
+        const moving = it.spd > 0.3;
+        const expected = moving ? it.tgt + it.spd * (age + 0.8) : it.tgt;
+        let vel = moving ? it.spd + (expected - it.dist) * 0.9 : (it.tgt - it.dist) * 1.4;
+        vel = Math.max(0, Math.min(vel, it.spd * 2.5 + 4));
+        it.dist = Math.min(it.path.total, it.dist + vel * dt);
+        const p = posAt(it.path, it.dist);
+        it.ll = p.ll; it.mk.setLatLng(p.ll);
+        const a = posAt(it.path, Math.max(0, it.dist - 10)).ll, b = posAt(it.path, it.dist + 10).ll;
+        if (a[0] !== b[0] || a[1] !== b[1]) setHeading(it, bearing(a, b));
+        if (it.trail && ts - it.lastTrail > 300) {
+          it.lastTrail = ts; const step = Math.max(1, Math.floor(p.i / 350)); const seg = [];
+          for (let i = 0; i <= p.i; i += step) seg.push(it.path.pts[i]); seg.push(p.ll); it.trail.setLatLngs(seg);
+        }
+      } else if (it.fallback) { it.ll = it.fallback; it.mk.setLatLng(it.fallback); }
+      if (it.el) { it.el.classList.toggle('stopped', it.spd <= 0.3); it.el.classList.toggle('stale', !opts.local && (!!it.stale || (now - it.ping) > 9000)); }
+    });
+    if (ts - slowT > 1000) {
+      slowT = ts;
+      Object.keys(items).forEach(k => { const it = items[k]; if (it.lbl) it.lbl.textContent = ((!opts.local && (now - it.ping) > 9000)) ? T('no signal', 'सिग्नल नहीं') : (it.spd > 0.3 ? Math.min(40, Math.round(it.spd * 3.6)) + ' km/h' : T('stopped', 'रुका है')); });
+      if (opts.follow) { const k = Object.keys(items)[0]; const it = k && items[k]; if (it && !map.getBounds().pad(-0.28).contains(it.ll)) map.panTo(it.ll, { animate: true, duration: 0.9 }); }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  api_.pos = id => (items[id] ? items[id].ll : null);
+  api_.destroy = function () { dead = true; if (raf) cancelAnimationFrame(raf); raf = 0; Object.keys(items).forEach(k => { try { map.removeLayer(items[k].mk); if (items[k].trail) map.removeLayer(items[k].trail); } catch (e) {} }); };
+  S.anims.push(api_);
+  return api_;
+}
+
 /* ---------- maps ---------- */
 function makeMap(el, opts) {
   if (!window.L) { el.innerHTML = '<p class="muted" style="padding:20px">Map library missing.</p>'; return null; }
@@ -403,22 +499,24 @@ const NAV = [
 function hhId() { try { return localStorage.getItem('ww_hh') || ''; } catch (e) { return ''; } }
 function hasIdentity() { if (S.token || hhId()) return true; try { return sessionStorage.getItem('ww_guest') === '1'; } catch (e) { return !!S.guest; } }
 function renderHeader() {
-  const who = S.token ? `${esc(S.name || '')} · ${esc(T(ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][0] : S.role, ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][1] : S.role))}` : '';
+  const who = S.token ? esc(T(ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][0] : S.role, ROLE_LABEL[S.role] ? ROLE_LABEL[S.role][1] : S.role)) : '';
   $('.top').innerHTML = `<img src="logo.png" alt="WasteWise Daporijo"><div style="min-width:0"><div class="ttl">WasteWise ${opsWord(!S.opsShown)}</div><div class="sub">${esc(SCHOOL.name)} · Daporijo</div></div><div class="sp"></div><img class="school" src="school.png" alt="" onerror="this.style.display='none'">
     <button class="chip" id="bLang">${LANG === 'mix' ? 'EN + हिं' : LANG === 'en' ? 'English' : 'हिन्दी'}</button>
-    ${S.token ? `<button class="chip" id="bOut">${who} ✕</button>` : (hhId() ? `<button class="chip" id="bOut">${esc(hhId())} ✕</button>` : '')}`;
+    ${hasIdentity() ? `<button class="chip" id="bOut" title="${S.token ? who : esc(hhId())}">⎋ ${esc(T('Log out', 'लॉग आउट'))}</button>` : ''}`;
   $('#bLang').onclick = cycleLang;
   if ($('#bOut')) $('#bOut').onclick = () => { logout(); };
   if (!S.opsTimer) S.opsTimer = setTimeout(() => { S.opsShown = true; }, 5000);
   let ft = $('#foot'); if (ft) ft.innerHTML = footHtml();
   const cur = location.hash || '#/';
-  $('#nav').innerHTML = NAV.map(n => `<a href="${n[0]}" class="${cur === n[0] || (n[0] !== '#/' && cur.indexOf(n[0]) === 0) ? 'on' : ''}">${esc(T(n[1], n[2]))}</a>`).join('');
+  $('#nav').innerHTML = NAV.map(n => `<a href="${n[0]}" class="${cur === n[0] || (n[0] !== '#/' && cur.indexOf(n[0]) === 0) ? 'on' : ''}">${esc(T(n[1], n[2]))}</a>`).join('') + (hasIdentity() ? `<a href="#/" id="navOut" class="out">⎋ ${esc(T('Log out', 'लॉग आउट'))}</a>` : '');
+  if ($('#navOut')) $('#navOut').onclick = e => { e.preventDefault(); logout(); };
 }
 
 /* ---------- router ---------- */
 const VIEWS = {};
 async function route() {
   S.gen++;
+  S.anims.forEach(a => { try { a.destroy(); } catch (e) {} }); S.anims = [];
   clearTimers();
   stopScanner && stopScanner();
   Object.keys(S.maps).forEach(k => { try { S.maps[k].remove(); } catch (e) {} delete S.maps[k]; });
@@ -679,8 +777,9 @@ async function citizenHome(v, d) {
     }
     if (m && st.trip) {
       if (!drawnRoute) { const path = await getPath(st.trip.RouteID); if (g !== S.gen) return; drawnRoute = L.polyline(path.pts, { color: '#1E88E5', weight: 4, opacity: .7 }).addTo(m); }
-      if (st.trip.loc) { const ll = [st.trip.loc.lat, st.trip.loc.lng]; if (!truck) truck = L.marker(ll, { icon: truckIcon() }).addTo(m); else truck.setLatLng(ll); if (!m._fit) { m._fit = 1; m.fitBounds(L.latLngBounds([ll, [num(h.Lat), num(h.Lng)]]).pad(.4)); } }
-    } else if (truck && m) { m.removeLayer(truck); truck = null; }
+      if (!truck) truck = truckLayer(m, { trail: true, onFirst: ll => { if (!m._fit) { m._fit = 1; m.fitBounds(L.latLngBounds([ll, [num(h.Lat), num(h.Lng)]]).pad(.4)); } } });
+      await truck.sync(st.trip.loc ? [st.trip] : []);
+    } else if (truck && m) { await truck.sync([]); }
   }
   tick(); setTimer(tick, 2000);
 }
@@ -729,8 +828,8 @@ function scanQR(onText) {
   $('#qrNo').onclick = async () => { finished = true; await stop(); m.close(); };
   m.onclose = stop;
   if (!window.Html5Qrcode) { $('#qrMsg').textContent = T('Scanner not available. Enter the ID by hand.', 'स्कैनर उपलब्ध नहीं। ID हाथ से लिखें।'); return; }
-  sc = new Html5Qrcode('qrReader');
-  sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 220, height: 220 } }, async txt => {
+  sc = new Html5Qrcode('qrReader', { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], useBarCodeDetectorIfSupported: true, verbose: false });
+  sc.start({ facingMode: 'environment' }, { fps: 12 }, async txt => {
     if (finished) return; const t = parseTag(txt);
     if (!t) { $('#qrMsg').textContent = T('That is not a WasteWise tag.', 'यह वेस्टवाइज टैग नहीं है।'); return; }
     finished = true; await stop(); m.close(); onText(t);
@@ -769,11 +868,11 @@ async function driverTrip(v, trip, loc0) {
   if (m) {
     L.polyline(path.pts, { color: '#1E88E5', weight: 5, opacity: .75 }).addTo(m);
     stops.forEach((p, i) => placeMarker(p, isService(i) ? i : null).addTo(m));
-    tm = L.marker(path.pts[D.gi], { icon: truckIcon() }).addTo(m);
+    tm = truckLayer(m, { trail: true, follow: true, local: true });
     m.fitBounds(L.polyline(path.pts).getBounds().pad(.2));
   }
   const pos = () => path.pts[Math.min(D.gi, path.pts.length - 1)];
-  function moveTruck() { if (tm) { tm.setLatLng(pos()); if (m && !m.getBounds().pad(-.15).contains(pos())) m.panTo(pos()); } }
+  function moveTruck() { if (tm) { const p = pos(); tm.sync([{ TripID: trip.TripID, VehicleID: trip.VehicleID, RouteID: trip.RouteID, loc: { lat: p[0], lng: p[1], gi: D.gi, dist: D.dist, spd: D.moving ? D.spd : 0 } }]); } }
 
   function renderStops() {
     $('#dStops').innerHTML = stops.map((p, i) => {
@@ -905,11 +1004,14 @@ VIEWS.mrf = async v => {
   if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'MRF operator', 'एमआरएफ ऑपरेटर'); }
   const rates = {}; S.st.rates.forEach(r => { rates[r.Category] = num(r.RatePerKg); });
   const CATS = [['Organic', 'जैविक'], ['Plastic', 'प्लास्टिक'], ['Paper', 'कागज़'], ['Glass', 'काँच'], ['Metal', 'धातु'], ['Other', 'अन्य']];
+  v.innerHTML = `<div class="card" style="margin-bottom:12px"><h3>${esc(T('Trucks on the road', 'सड़क पर ट्रक'))}</h3><div id="mMap" class="map"></div></div><div id="mBody"></div>`;
+  let mBoard = null;
   async function draw() {
     const g = S.gen;
     const [live, rc] = await Promise.all([api('live'), api('list', { tab: 'MRF_Receipts' })]);
     if (g !== S.gen) return;
-    v.innerHTML = `<div class="grid g2">
+    if (mBoard) mBoard.update(live);
+    $('#mBody').innerHTML = `<div class="grid g2">
       <div class="card"><h2>${esc(T('Loads waiting at the MRF', 'एमआरएफ में आए माल'))}</h2>
         ${live.pending.length ? live.pending.map(t => `<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.TotalKg)} kg ${esc(T('on the truck', 'ट्रक में'))}</div></div><div class="sp"></div><button class="btn sm" data-rc="${esc(t.TripID)}" data-kg="${t.TotalKg}">${esc(T('Receive and sort', 'लें और छाँटें'))}</button></div>`).join('') : `<p class="muted">${esc(T('No load is waiting. A driver sends a load here when a trip ends.', 'कोई माल प्रतीक्षा में नहीं। ट्रिप खत्म होने पर ड्राइवर माल यहाँ भेजता है।'))}</p>`}
       </div>
@@ -941,8 +1043,10 @@ VIEWS.mrf = async v => {
       } catch (e) { $('#rcMsg').textContent = e.message; btn.disabled = false; }
     };
   }
+  mBoard = await buildLiveBoard($('#mMap'), false);
   await draw();
   setTimer(() => { if (!$('.modal')) draw().catch(() => {}); }, 8000);
+  setTimer(async () => { try { const l = await api('live', {}, { timeout: 8000 }); if (mBoard) mBoard.update(l); } catch (e) {} }, 2500);
 };
 /* ============================ SHARED LIVE BOARD ============================ */
 async function buildLiveBoard(el, dark) {
@@ -963,14 +1067,8 @@ async function buildLiveBoard(el, dark) {
   board.dumps.addTo(m);
   if (all.length) m.fitBounds(L.latLngBounds(all).pad(.15));
   board.update = async live => {
-    const have = new Set();
-    for (const t of live.active) {
-      if (!t.loc) continue; have.add(t.TripID);
-      const ll = [t.loc.lat, t.loc.lng];
-      if (!board.trucks[t.TripID]) board.trucks[t.TripID] = L.marker(ll, { icon: truckIcon(), zIndexOffset: 1000 }).addTo(m).bindTooltip((VEH(t.VehicleID) || {}).Name || t.TripID, { permanent: false });
-      else board.trucks[t.TripID].setLatLng(ll);
-    }
-    Object.keys(board.trucks).forEach(k => { if (!have.has(k)) { m.removeLayer(board.trucks[k]); delete board.trucks[k]; } });
+    if (!board.tl) board.tl = truckLayer(m, { trail: true });
+    await board.tl.sync(live.active.filter(t => t.loc));
     board.alertMk = board.alertMk || {};
     const seenA = new Set();
     (live.alerts || []).filter(a => a.Lat != null && /Missed|dump|Bin full/i.test(a.Type)).forEach(a => {
@@ -1123,15 +1221,22 @@ let adminTab = 'places';
 const PTYPES = ['Depot', 'MRF', 'Pickup Point', 'Public Bin', 'Dump Site', 'Market', 'Landmark'];
 async function refreshStatic() { S.paths = {}; S.st = await api('static'); applyConfig(); }
 
+async function adminLive(body) {
+  body.innerHTML = `<div class="card"><h3>${esc(T('Live trucks', 'लाइव ट्रक'))}</h3><div id="aLive" class="map tall"></div><div id="aLiveT" style="margin-top:8px"></div></div>`;
+  const board = await buildLiveBoard($('#aLive'), false); const g = S.gen;
+  async function tick() { let l; try { l = await api('live', {}, { timeout: 8000 }); } catch (e) { return; } if (g !== S.gen) return; board.update(l); const th = await trucksHtml(l); if (g === S.gen && $('#aLiveT')) $('#aLiveT').innerHTML = th; }
+  tick(); setTimer(tick, 2500);
+}
 VIEWS.admin = async v => {
   const roles = ['admin'];
   if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'Admin', 'एडमिन'); }
-  const tabs = [['places', 'Places', 'स्थान'], ['routes', 'Routes', 'रास्ते'], ['households', 'Households', 'घर'], ['fleet', 'Fleet, users, rates', 'वाहन, यूज़र, दरें'], ['data', 'Data', 'डेटा']];
+  const tabs = [['live', 'Live map', 'लाइव नक्शा'], ['places', 'Places', 'स्थान'], ['routes', 'Routes', 'रास्ते'], ['households', 'Households', 'घर'], ['fleet', 'Fleet, users, rates', 'वाहन, यूज़र, दरें'], ['data', 'Data', 'डेटा']];
   v.innerHTML = `<div class="seg" style="margin-bottom:12px" id="aTabs">${tabs.map(t => `<button data-t="${t[0]}" class="${adminTab === t[0] ? 'on good' : ''}">${esc(T(t[1], t[2]))}</button>`).join('')}</div><div id="aBody"></div>`;
   $$('#aTabs button').forEach(b => b.onclick = () => { adminTab = b.dataset.t; route(); });
   const body = $('#aBody');
   try {
-    if (adminTab === 'places') await adminPlaces(body);
+    if (adminTab === 'live') await adminLive(body);
+    else if (adminTab === 'places') await adminPlaces(body);
     else if (adminTab === 'routes') await adminRoutes(body);
     else if (adminTab === 'households') await adminHouseholds(body);
     else if (adminTab === 'fleet') await adminFleet(body);
