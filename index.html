@@ -273,6 +273,7 @@ th,td{padding:10px 12px}
 <footer id="foot" class="foot"></footer>
 <div id="modalRoot"></div>
 <div id="printArea"></div>
+<script src="config.js"></script>
 <script src="lib/leaflet.js"></script>
 <script src="lib/qrcode.js"></script>
 <script src="lib/html5-qrcode.min.js"></script>
@@ -283,9 +284,16 @@ th,td{padding:10px 12px}
    Google Sheet through the Apps Script web app (Code.gs). Real places, routes and
    households are fed in Admin; nothing is hard-coded here.
    ===================================================================== */
-const WEB_APP_URL_FILE = 'PASTE_YOUR_OPS_WEB_APP_URL_HERE';
-let WEB_APP_URL = WEB_APP_URL_FILE;
-try { const sv = localStorage.getItem('ww_api'); if (WEB_APP_URL_FILE.indexOf('PASTE_YOUR') >= 0 && sv) WEB_APP_URL = sv; } catch (e) {}
+const API_OK = u => /^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(u || '');
+let WEB_APP_URL = 'PASTE_YOUR_OPS_WEB_APP_URL_HERE';
+(function () {
+  // 1) a link like  ...?api=<address>  sets it and is remembered on this device
+  // 2) config.js (one place for every device)  3) what this device saved before
+  let q = ''; try { q = new URLSearchParams(location.search).get('api') || ''; } catch (e) {}
+  if (API_OK(q)) { try { localStorage.setItem('ww_api', q); history.replaceState(null, '', location.pathname + location.hash); } catch (e) {} WEB_APP_URL = q; return; }
+  if (API_OK(window.WW_API)) { WEB_APP_URL = window.WW_API; return; }
+  try { const sv = localStorage.getItem('ww_api'); if (API_OK(sv)) WEB_APP_URL = sv; } catch (e) {}
+})();
 const SURVEY_APPS = [
   { en: 'Survey app 1: households, shops, hostel, dump sites', hi: 'सर्वे ऐप 1: घर, दुकान, हॉस्टल, कचरा स्थल', url: 'https://nikhil509.github.io/wastewise-daporijo/' },
   { en: 'Survey app 2: road and premises survey', hi: 'सर्वे ऐप 2: सड़क और परिसर सर्वे', url: 'https://nikhil509.github.io/dapo100-survey/' },
@@ -662,8 +670,8 @@ async function route() {
   } catch (e) {
     v.innerHTML = `<div class="card"><h3>${esc(T('Could not load', 'लोड नहीं हो सका'))}</h3><p>${esc(e.message)}</p><div class="row" style="margin-top:10px"><button class="btn" onclick="S.st=null;route()">${esc(T('Try again', 'फिर कोशिश करें'))}</button></div></div>`;
     if (WEB_APP_URL.indexOf('PASTE_YOUR') >= 0) {
-      v.innerHTML += `<div class="card" style="margin-top:12px"><h3>Set the backend address</h3><p class="muted">Paste your Apps Script web app address (it ends with /exec). It is saved on this device. To set it for everyone, put it in index.html on the line that says WEB_APP_URL_FILE.</p><input class="i" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec"><div class="row" style="margin-top:10px"><button class="btn" id="apiSave">Save and open</button></div><p class="muted" id="apiMsg"></p></div>`;
-      $('#apiSave').onclick = () => { const u = $('#apiUrl').value.trim(); if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(u)) { $('#apiMsg').textContent = 'That does not look like a web app address ending in /exec.'; return; } try { localStorage.setItem('ww_api', u); } catch (e) {} location.reload(); };
+      v.innerHTML += `<div class="card" style="margin-top:12px"><h3>Set the backend address</h3><p class="muted">Paste your Apps Script web app address (it ends with /exec). To never see this box again on any device, put it once in the file config.js. Or open the site with the share link shown after you save.</p><input class="i" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec"><div class="row" style="margin-top:10px"><button class="btn" id="apiSave">Save and open</button></div><p class="muted" id="apiMsg"></p></div>`;
+      $('#apiSave').onclick = () => { const u = $('#apiUrl').value.trim(); if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(u)) { $('#apiMsg').textContent = 'That does not look like a web app address ending in /exec.'; return; } try { localStorage.setItem('ww_api', u); } catch (e) {} location.href = location.pathname + '?api=' + encodeURIComponent(u); };
     }
 
   }
@@ -900,6 +908,7 @@ async function citizenHome(v, d) {
       </div>
     </div>
     <div class="card"><div class="row"><div><h3 style="margin:0">${esc(T('Report a problem', 'समस्या बताएँ'))}</h3><div class="muted">${esc(T('Truck did not come, or you saw garbage dumped?', 'ट्रक नहीं आया, या कहीं कचरा फेंका दिखा?'))}</div></div><div class="sp"></div><button class="btn alt sm" id="cRepM">${esc(T('Truck missed me', 'ट्रक नहीं आया'))}</button><button class="btn alt sm" id="cRepD">${esc(T('New dump site', 'नया कचरा स्थल'))}</button></div></div>
+    <div id="cNotices"></div>
     <div class="grid g2">
       <div id="cStats" style="display:contents">${statsHtml(d)}</div>
     </div></div>`;
@@ -923,6 +932,29 @@ async function citizenHome(v, d) {
   $('#bgScan').onclick = () => scanQR(t => { if (t.bag) regBag(t.bag); else $('#bgMsg').textContent = T('That QR is not a WasteWise bag code.', 'यह QR वेस्टवाइज बैग कोड नहीं है।'); });
   $('#bgAdd').onclick = () => { const c = $('#bgCode').value.trim().toUpperCase(); if (c) regBag(c); };
   loadBags();
+  const seenKey = 'ww_seen_' + h.HouseholdID;
+  let popping = false;
+  async function loadNotices() {
+    let n; try { n = await api('myNotices', { id: h.HouseholdID }); } catch (e) { return; }
+    if (!$('#cNotices')) return;
+    const sim = n.demo ? ' <span class="tag" style="background:#FFF3D6;color:#8A5A00">' + esc(T('simulation, no real money', 'सिमुलेशन, असली पैसा नहीं')) + '</span>' : '';
+    $('#cNotices').innerHTML = `<div class="card"><div class="row"><h3 style="margin:0">${esc(T('Warnings and fines', 'चेतावनी और जुर्माना'))}${sim}</h3><div class="sp"></div>${n.fineDue ? `<div style="text-align:right"><div class="muted">${esc(T('Fine due', 'देय जुर्माना'))}</div><div style="font-size:24px;font-weight:800;color:var(--bad)">₹${n.fineDue}</div></div>` : ''}</div>
+      <p class="muted" style="margin:6px 0">${esc(T('The MRF checks every bag. Partly separated: a warning. Poor: a fine. Partly separated ' + n.rules.repeatN + ' times in ' + n.rules.windowDays + ' days: a fine of ₹' + n.rules.finePartly + '. Poor fine: ₹' + n.rules.finePoor + '.', 'एमआरएफ हर बैग जाँचता है। कुछ अलग: चेतावनी। खराब: जुर्माना। ' + n.rules.windowDays + ' दिन में ' + n.rules.repeatN + ' बार कुछ अलग: ₹' + n.rules.finePartly + ' जुर्माना। खराब का जुर्माना: ₹' + n.rules.finePoor + '।'))}</p>
+      ${n.partlyRecent ? `<p style="margin:0 0 6px"><b>${esc(T('Partly separated bags in the last ' + n.rules.windowDays + ' days: ', 'पिछले ' + n.rules.windowDays + ' दिन में कुछ अलग बैग: '))}${n.partlyRecent} / ${n.rules.repeatN}</b></p>` : ''}
+      ${n.notices.length ? `<ul class="feed">${n.notices.map(x => `<li>${fmtD(x.Time)} · ${esc(x.BagID)} · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span> ${x.Action === 'Fine' ? '<b style="color:var(--bad)">' + esc(T('Fine ₹' + x.FineRs, 'जुर्माना ₹' + x.FineRs)) + '</b> (' + esc(x.Status || 'Due') + ')' : x.Action === 'Warning' ? '<b style="color:#B26A00">' + esc(T('Warning', 'चेतावनी')) + '</b>' : esc(T('Well done', 'शाबाश'))}${x.Reason ? '<div class="muted">' + esc(x.Reason) + '</div>' : ''}</li>`).join('')}</ul>` : `<p class="muted">${esc(T('No bag has been checked yet.', 'अभी किसी बैग की जाँच नहीं हुई।'))}</p>`}</div>`;
+    let seen = 0; try { seen = Number(localStorage.getItem(seenKey) || 0); } catch (e) {}
+    const fresh = n.notices.filter(x => x.Time > seen && (x.Action === 'Fine' || x.Action === 'Warning')).reverse();
+    if (fresh.length && !popping && !$('.modal')) {
+      popping = true; const x = fresh[fresh.length - 1], isFine = x.Action === 'Fine';
+      const mm = modal(`<div style="text-align:center"><div style="font-size:44px">${isFine ? '⚠️' : '🔔'}</div><h2 style="margin:6px 0;color:${isFine ? 'var(--bad)' : '#B26A00'}">${esc(isFine ? T('Fine: ₹' + x.FineRs, 'जुर्माना: ₹' + x.FineRs) : T('Warning', 'चेतावनी'))}</h2>
+        <p style="margin:0 0 6px"><b>${esc(T('Bag ', 'बैग '))}${esc(x.BagID)}</b> · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></p><p>${esc(x.Reason)}</p>
+        <p class="muted">${esc(T('Keep wet and dry waste in separate bags and remove plastic from wet waste.', 'गीला और सूखा कचरा अलग बैग में रखें और गीले कचरे से प्लास्टिक निकालें।'))}</p>${n.demo ? `<p class="muted">${esc(T('Simulation: no real money is taken.', 'सिमुलेशन: असली पैसा नहीं लिया जाता।'))}</p>` : ''}
+        <button class="btn big" id="nOk" style="width:100%">${esc(T('I understand', 'मैं समझ गया'))}</button></div>`);
+      mm.el.addEventListener('mousedown', e => { if (e.target === mm.el) e.stopImmediatePropagation(); }, true);
+      $('#nOk').onclick = () => { try { localStorage.setItem(seenKey, String(Math.max.apply(null, n.notices.map(y => y.Time)))); } catch (e) {} mm.close(); popping = false; };
+    }
+  }
+  loadNotices(); setTimer(loadNotices, 6000);
   $('#cSwitch').onclick = () => { try { localStorage.removeItem('ww_hh'); } catch (e) {} route(); };
 
   const m = makeMap($('#cMap'), { zoom: 16 }); S.maps.cMap = m;
@@ -1155,18 +1187,17 @@ async function driverTrip(v, trip, loc0) {
       <label class="f" ${bagCtx ? 'style="display:none"' : ''}>${esc(T('Household ID', 'घर की ID'))}</label><input class="i" id="pHH" value="${esc(hh)}" placeholder="HH-D03" autocapitalize="characters" ${bagCtx ? 'type="hidden"' : ''}>
       <label class="f" ${bagCtx ? 'style="display:none"' : ''}>${esc(T('Bag', 'बैग'))}</label><div class="seg" id="pStream" ${bagCtx ? 'style="display:none"' : ''}><button data-v="Wet" class="wet">${esc(T('Wet', 'गीला'))}</button><button data-v="Dry" class="dry">${esc(T('Dry', 'सूखा'))}</button><button data-v="Mixed" class="mixed">${esc(T('Mixed', 'मिला'))}</button></div>
       <label class="f">${esc(T('Weight (kg)', 'वज़न (किलो)'))}</label><input class="i" id="pKg" type="number" step="0.1" min="0" inputmode="decimal" placeholder="0.0">
-      <label class="f">${esc(T('How well separated?', 'कितना अच्छा अलग किया?'))}</label><div class="seg" id="pSeg"><button data-v="Good" class="good">${esc(T('Good', 'अच्छा'))}</button><button data-v="Partly" class="partly">${esc(T('Partly', 'कुछ'))}</button><button data-v="Poor" class="poor">${esc(T('Poor', 'खराब'))}</button></div>
+      <p class="muted" style="margin:8px 0 0">${esc(T('Sorting is checked later at the MRF. Only the weight is taken here.', 'अलगाव की जाँच बाद में एमआरएफ में होगी। यहाँ सिर्फ वज़न लें।'))}</p>
       <div class="row" style="margin-top:14px"><button class="btn" id="pSave">${esc(T('Save pickup', 'पिकअप सेव करें'))}</button><button class="btn grey" id="pNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="pMsg"></p>`);
-    const sync = () => { $$('#pStream button', mm.el).forEach(b => b.classList.toggle('on', b.dataset.v === st.stream)); $$('#pSeg button', mm.el).forEach(b => b.classList.toggle('on', b.dataset.v === st.seg)); };
+    const sync = () => { $$('#pStream button', mm.el).forEach(b => b.classList.toggle('on', b.dataset.v === st.stream)); };
     $$('#pStream button', mm.el).forEach(b => b.onclick = () => { st.stream = b.dataset.v; sync(); });
-    $$('#pSeg button', mm.el).forEach(b => b.onclick = () => { st.seg = b.dataset.v; sync(); });
     sync(); setTimeout(() => $('#pKg') && $('#pKg').focus(), 80);
     $('#pNo').onclick = () => { mm.close(); openArrival(); };
     $('#pSave').onclick = async () => {
       const btn = $('#pSave'); btn.disabled = true;
       try {
         const id = $('#pHH').value.trim().toUpperCase();
-        const params = { tripId: trip.TripID, stream: st.stream, kg: $('#pKg').value, seg: st.seg };
+        const params = { tripId: trip.TripID, stream: st.stream, kg: $('#pKg').value };
         if (bagCtx) { params.bagId = bagCtx.bag.BagID; if (bagCtx.anon) { params.allowAnon = 1; params.placeId = cur.PlaceID; } } else if (id) params.householdId = id; else params.placeId = cur.PlaceID;
         const d = await api('pickup', params);
         D.pk.push(d.pickup); D.here++;
@@ -1237,7 +1268,11 @@ VIEWS.mrf = async v => {
     const [live, rc] = await Promise.all([api('live'), api('list', { tab: 'MRF_Receipts' })]);
     if (g !== S.gen) return;
     if (mBoard) mBoard.update(live);
-    $('#mBody').innerHTML = `<div class="grid g2">
+    let pend = { list: [], rules: {} }; try { pend = await api('pendingBags'); } catch (e) {}
+    if (g !== S.gen) return;
+    $('#mBody').innerHTML = `<div class="card" style="margin-bottom:12px"><div class="row"><div><h2 style="margin:0">${esc(T('Open and check bags', 'बैग खोलकर जाँचें'))}</h2><div class="muted">${esc(T('Scan the bag, look at the waste, and enter the sorting. For now this is manual. A sorting conveyor belt could send the same result here.', 'बैग स्कैन करें, कचरा देखें और अलगाव दर्ज करें। अभी यह हाथ से है। सॉर्टिंग कन्वेयर बेल्ट वही नतीजा यहाँ भेज सकती है।'))}</div></div><div class="sp"></div><button class="btn big" id="mScan">📷 ${esc(T('Scan bag', 'बैग स्कैन करें'))}</button></div>
+      ${pend.list.length ? `<div class="scroll" style="margin-top:10px"><table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Household', 'घर'))}</th><th>kg</th><th></th></tr></thead><tbody>${pend.list.map(x => `<tr><td><b>${esc(x.BagID)}</b> <span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span></td><td>${x.HouseholdID ? esc(x.HouseholdID + ' · ' + x.Label) : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${f1(x.WeightKg)}</td><td><button class="btn sm" data-insp="${esc(x.ScanID)}">${esc(T('Check', 'जाँचें'))}</button></td></tr>`).join('')}</tbody></table></div>` : `<p class="muted" style="margin-top:8px">${esc(T('No bags waiting to be checked.', 'जाँच के लिए कोई बैग नहीं।'))}</p>`}</div>
+    <div class="grid g2">
       <div class="card"><h2>${esc(T('Loads waiting at the MRF', 'एमआरएफ में आए माल'))}</h2>
         ${live.pending.length ? live.pending.map(t => `<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.TotalKg)} kg ${esc(T('on the truck', 'ट्रक में'))}</div></div><div class="sp"></div><button class="btn sm" data-rc="${esc(t.TripID)}" data-kg="${t.TotalKg}">${esc(T('Receive and sort', 'लें और छाँटें'))}</button></div>`).join('') : `<p class="muted">${esc(T('No load is waiting. A driver sends a load here when a trip ends.', 'कोई माल प्रतीक्षा में नहीं। ट्रिप खत्म होने पर ड्राइवर माल यहाँ भेजता है।'))}</p>`}
       </div>
@@ -1246,6 +1281,31 @@ VIEWS.mrf = async v => {
       <div class="card" style="grid-column:1/-1"><h3>${esc(T('Received loads', 'रिसीव किए गए माल'))}</h3><div class="scroll"><table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Trip', 'ट्रिप'))}</th>${CATS.map(c => `<th>${c[0]}</th>`).join('')}<th>${esc(T('Rejected', 'अस्वीकृत'))}</th><th>${esc(T('Income', 'आमदनी'))}</th></tr></thead><tbody>
         ${rc.rows.slice().reverse().map(r => `<tr><td>${fmtD(r.Time)} ${fmtT(r.Time)}</td><td>${esc(r.TripID)}</td>${CATS.map(c => `<td>${f1(r[c[0]])}</td>`).join('')}<td>${f1(r.Rejected)}</td><td>${rs(r.Revenue)}</td></tr>`).join('') || `<tr><td colspan="10" class="muted">—</td></tr>`}</tbody></table></div></div></div>`;
     $$('[data-rc]').forEach(b => b.onclick = () => receiveForm(b.dataset.rc, num(b.dataset.kg)));
+    $$('[data-insp]').forEach(b => b.onclick = () => inspectForm(pend.list.find(x => x.ScanID === b.dataset.insp), pend.rules));
+    $('#mScan').onclick = () => scanQR(t => {
+      if (!t.bag) { toast(T('That is not a bag QR code.', 'यह बैग QR कोड नहीं है।'), true); return; }
+      const x = pend.list.find(y => y.BagID === t.bag);
+      if (!x) { toast(T('No bag with this code is waiting. It may be already checked.', 'इस कोड का कोई बैग प्रतीक्षा में नहीं। शायद जाँच हो चुकी है।'), true); return; }
+      inspectForm(x, pend.rules);
+    });
+  }
+  function inspectForm(x, rules) {
+    if (!x) return;
+    const R = rules || {};
+    const mm = modal(`<h3>${esc(T('Check bag ', 'बैग जाँचें '))}${esc(x.BagID)} <span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span></h3>
+      <div class="card" style="background:#EEF7F0;padding:10px;margin:6px 0 10px">${x.HouseholdID ? `<div style="font-size:18px;font-weight:800">${esc(x.Label)}</div><div class="muted">${esc(x.HouseholdID)} · ${esc(x.Colony || '')} · ${f1(x.WeightKg)} kg</div>` : `<div style="font-weight:800;color:var(--bad)">${esc(T('Unregistered bag. No citizen is told.', 'अपंजीकृत बैग। किसी नागरिक को नहीं बताया जाएगा।'))}</div>`}</div>
+      <label class="f">${esc(T('How well was the waste separated?', 'कचरा कितना अच्छा अलग था?'))}</label>
+      <div class="seg" id="iSeg"><button data-v="Good" class="good">${esc(T('Good', 'अच्छा'))}</button><button data-v="Partly" class="partly">${esc(T('Partly', 'कुछ'))}</button><button data-v="Poor" class="poor">${esc(T('Poor', 'खराब'))}</button></div>
+      <p class="muted" style="margin-top:8px">${esc(T('Good: score only. Partly: warning, and a fine if repeated ' + (R.repeatN || 3) + ' times in ' + (R.windowDays || 30) + ' days (₹' + (R.finePartly || 50) + '). Poor: fine of ₹' + (R.finePoor || 100) + '.', 'अच्छा: सिर्फ स्कोर। कुछ: चेतावनी, और ' + (R.windowDays || 30) + ' दिन में ' + (R.repeatN || 3) + ' बार हो तो जुर्माना (₹' + (R.finePartly || 50) + ')। खराब: ₹' + (R.finePoor || 100) + ' जुर्माना।'))}</p>
+      <div class="row" style="margin-top:12px"><button class="btn" id="iSave" disabled>${esc(T('Save check', 'जाँच सेव करें'))}</button><button class="btn grey" id="iNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="iMsg"></p>`);
+    let seg = '';
+    $$('#iSeg button', mm.el).forEach(b => b.onclick = () => { seg = b.dataset.v; $$('#iSeg button', mm.el).forEach(y => y.classList.toggle('on', y === b)); $('#iSave').disabled = false; });
+    $('#iNo').onclick = mm.close;
+    $('#iSave').onclick = async () => {
+      $('#iSave').disabled = true;
+      try { const d = await api('inspectBag', { scanId: x.ScanID, seg }); mm.close(); const a = d.inspection; toast(T('Saved: ' + a.Segregation + (a.Action === 'Fine' ? ' · fine ₹' + a.FineRs : a.Action === 'Warning' ? ' · warning sent' : ''), 'सेव: ' + a.Segregation + (a.Action === 'Fine' ? ' · जुर्माना ₹' + a.FineRs : a.Action === 'Warning' ? ' · चेतावनी भेजी' : ''))); draw(); }
+      catch (e) { $('#iMsg').textContent = e.message; $('#iSave').disabled = false; }
+    };
   }
   function receiveForm(tripId, kg) {
     const mm = modal(`<h3>${esc(T('Sort and weigh', 'छाँटें और तौलें'))} · ${esc(tripId)}</h3><p class="muted">${esc(T('Weigh each category after sorting. The truck carried ', 'छँटाई के बाद हर श्रेणी तौलें। ट्रक में था '))}${f1(kg)} kg.</p>
@@ -1404,7 +1464,8 @@ VIEWS.incharge = async v => {
   async function follow() {
     try {
       const d = await api('followUps'); if (g !== S.gen || !$('#iFollow')) return;
-      $('#iFollow').innerHTML = d.list.length ? `<table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Household', 'घर'))}</th><th>${esc(T('Bag', 'बैग'))}</th><th>kg</th><th>${esc(T('Sorting', 'अलगाव'))}</th></tr></thead><tbody>${d.list.slice(0, 15).map(x => `<tr><td>${fmtD(x.Time)} ${fmtT(x.Time)}</td><td>${x.HouseholdID ? '<b>' + esc(x.HouseholdID) + '</b> · ' + esc(x.Label) + (x.Colony ? ' · ' + esc(x.Colony) : '') : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${esc(x.BagID)}</td><td>${f1(x.WeightKg)}</td><td><span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No poorly sorted bags yet.', 'अभी कोई खराब अलग बैग नहीं।'))}</p>`;
+      $('#iFollow').innerHTML = d.list.length ? `<table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Household', 'घर'))}</th><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Sorting', 'अलगाव'))}</th><th>${esc(T('Action', 'कार्रवाई'))}</th></tr></thead><tbody>${d.list.slice(0, 15).map(x => `<tr><td>${fmtD(x.Time)} ${fmtT(x.Time)}</td><td>${x.HouseholdID ? '<b>' + esc(x.HouseholdID) + '</b> · ' + esc(x.Label) + (x.Colony ? ' · ' + esc(x.Colony) : '') : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${esc(x.BagID)}</td><td><span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></td><td>${x.Action === 'Fine' ? '<b>₹' + x.FineRs + '</b> ' + esc(x.Status) + (x.Status === 'Due' ? ` <button class="btn sm" data-fs="${esc(x.InspectID)}|Paid">${esc(T('Paid', 'चुकाया'))}</button> <button class="btn grey sm" data-fs="${esc(x.InspectID)}|Waived">${esc(T('Waive', 'माफ़'))}</button>` : '') : esc(x.Action === 'Warning' ? T('Warning', 'चेतावनी') : '')}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No poorly sorted bags yet.', 'अभी कोई खराब अलग बैग नहीं।'))}</p>`;
+      $$('[data-fs]').forEach(b => b.onclick = async () => { const [id, st] = b.dataset.fs.split('|'); try { await api('fineStatus', { id, status: st }); follow(); } catch (e) { toast(e.message, true); } });
     } catch (e) {}
   }
   tick(); insights(); follow(); setTimer(tick, 3000); setTimer(insights, 20000); setTimer(follow, 10000);
@@ -1696,6 +1757,11 @@ async function adminBags(el) {
       <div class="row" style="margin-top:12px"><button class="btn" id="bgMake">${esc(T('Make and print labels', 'बनाएँ और लेबल प्रिंट करें'))}</button></div><p class="muted" id="bgMsg"></p></div>
     <div class="card"><h3>${esc(T('Bag status', 'बैग की स्थिति'))}</h3><div id="bgStat" class="muted">…</div></div></div>
     <div class="card" style="margin-top:12px"><div class="row"><h3 style="margin:0">${esc(T('All bags', 'सभी बैग'))}</h3><div class="sp"></div><button class="btn grey sm" id="bgPrintOpen">🖨 ${esc(T('Print labels of unregistered bags', 'अपंजीकृत बैगों के लेबल प्रिंट करें'))}</button></div><div class="scroll" id="bgTable" style="margin-top:8px"></div></div>`;
+  if (API_OK(WEB_APP_URL)) {
+    const link = location.origin + location.pathname + '?api=' + encodeURIComponent(WEB_APP_URL);
+    el.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:12px"><h3>${esc(T('Open on another phone or computer', 'दूसरे फ़ोन या कंप्यूटर पर खोलें'))}</h3><p class="muted">${esc(T('Open this link once on the new device. It remembers the backend, so nobody pastes anything. Or put the address in config.js and upload it.', 'नए डिवाइस पर यह लिंक एक बार खोलें। यह बैकएंड याद रखता है, कुछ पेस्ट नहीं करना। या पता config.js में रखकर अपलोड करें।'))}</p><input class="i" id="shLink" readonly value="${esc(link)}"><div class="row" style="margin-top:8px"><button class="btn sm" id="shCopy">${esc(T('Copy link', 'लिंक कॉपी करें'))}</button></div></div>`);
+    $('#shCopy').onclick = () => { $('#shLink').select(); try { navigator.clipboard.writeText(link); } catch (e) { document.execCommand('copy'); } toast(T('Link copied', 'लिंक कॉपी हुआ')); };
+  }
   let all = [];
   async function load() {
     const d = await api('bagList'); all = d.bags.slice().reverse();
