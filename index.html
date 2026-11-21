@@ -791,7 +791,7 @@ function citizenStart(v, lost) {
   places.forEach(p => { const g = (p.Colony || 'Other') + (p.RoadID ? ' · ' + p.RoadID : ''); (groups[g] = groups[g] || []).push(p); });
   const opts = Object.keys(groups).map(g => `<optgroup label="${esc(g)}">${groups[g].map(p => `<option value="${esc(p.PlaceID)}">${esc(p.Name)}</option>`).join('')}</optgroup>`).join('');
   v.innerHTML = `<div class="grid g2">
-    <div class="card"><h2>${esc(T('I have a bag tag', 'मेरे पास बैग टैग है'))}</h2>
+    <div class="card"><h2>${esc(T('I already have a Household ID', 'मेरे पास घर की ID है'))}</h2>
       ${lost ? `<p class="muted">${esc(T('That household was not found. Try again.', 'यह घर नहीं मिला। फिर कोशिश करें।'))}</p>` : ''}
       <label class="f">${esc(T('Household ID (example HH-D03)', 'घर की ID (जैसे HH-D03)'))}</label>
       <input class="i" id="cId" placeholder="HH-D03" autocapitalize="characters">
@@ -801,7 +801,7 @@ function citizenStart(v, lost) {
       <label class="f">${esc(T('Name of household or building', 'घर या भवन का नाम'))}</label><input class="i" id="rLabel" maxlength="60">
       <label class="f">${esc(T('Nearest pickup point', 'सबसे नज़दीकी पिकअप पॉइंट'))}</label><select class="i" id="rPlace">${opts}</select>
       <label class="f">${esc(T('People in the household', 'घर में सदस्य'))}</label><input class="i" id="rMem" type="number" min="1" max="30" value="4">
-      <div class="row" style="margin-top:12px"><button class="btn" id="rGo">${esc(T('Register and get my QR tags', 'पंजीकरण करें और QR टैग पाएँ'))}</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="rGo">${esc(T('Register my household', 'मेरा घर पंजीकृत करें'))}</button></div>
       <p class="muted" id="rMsg" style="margin-top:8px"></p>
     </div></div>`;
   $('#cGo').onclick = () => { const x = $('#cId').value.trim().toUpperCase(); if (!x) return; try { localStorage.setItem('ww_hh', x); } catch (e) {} route(); };
@@ -878,19 +878,18 @@ function statsHtml(d) {
 async function citizenHome(v, d) {
   const h = d.household;
   const place = PLACE(h.PlaceID);
-  const wetTxt = `WW|${h.HouseholdID}|Wet`, dryTxt = `WW|${h.HouseholdID}|Dry`;
   const sc = d.score;
   v.innerHTML = `<div class="grid">
     <div class="card"><div class="row"><div><h2 style="margin:0">${esc(h.Label)}</h2><div class="muted">${esc(h.HouseholdID)} · ${esc(place ? place.Name : '')}</div></div><div class="sp"></div><button class="btn grey sm" id="cSwitch">${esc(T('Switch household', 'घर बदलें'))}</button></div></div>
     <div id="cStat"></div>
     <div class="grid g2">
       <div class="card"><h3>${esc(T('Where is the truck?', 'ट्रक कहाँ है?'))} ${simTag()}</h3><div id="cMap" class="map"></div></div>
-      <div class="card"><h3>${esc(T('My bag tags', 'मेरे बैग टैग'))}</h3>
-        <div class="qrs">
-          <div class="qrc wet"><img src="${qrImg(wetTxt, 5)}" alt="Wet QR"><b style="color:var(--wet)">${esc(T('WET bag', 'गीला बैग'))}</b><div class="muted">${esc(T('food, vegetable, leaves', 'खाना, सब्ज़ी, पत्ते'))}</div></div>
-          <div class="qrc dry"><img src="${qrImg(dryTxt, 5)}" alt="Dry QR"><b style="color:var(--dry)">${esc(T('DRY bag', 'सूखा बैग'))}</b><div class="muted">${esc(T('plastic, paper, metal', 'प्लास्टिक, कागज़, धातु'))}</div></div>
-        </div>
-        <p class="muted" style="margin-top:8px">${esc(T('Stick one tag on each bag. The driver scans it and weighs the bag.', 'हर बैग पर एक टैग चिपकाएँ। ड्राइवर स्कैन करके बैग तौलेगा।'))}</p>
+      <div class="card"><h3>${esc(T('My bags', 'मेरे बैग'))}</h3>
+        <p class="muted" style="margin:0 0 10px">${esc(T('Every bag from WasteWise has its own QR code. Register each bag here before you put waste in it. The driver scans the bag, and the pickup is recorded under your household.', 'वेस्टवाइज के हर बैग पर अपना QR कोड है। कचरा डालने से पहले हर बैग यहाँ पंजीकृत करें। ड्राइवर बैग स्कैन करेगा और पिकअप आपके घर के नाम दर्ज होगा।'))}</p>
+        <div class="row"><button class="btn big" id="bgScan">📷 ${esc(T('Scan bag QR to register', 'पंजीकरण के लिए बैग QR स्कैन करें'))}</button></div>
+        <div class="row" style="margin-top:8px"><input class="i" id="bgCode" placeholder="BG-W0001" autocapitalize="characters" style="max-width:170px"><button class="btn alt" id="bgAdd">${esc(T('Register by code', 'कोड से पंजीकरण'))}</button></div>
+        <p class="muted" id="bgMsg" style="margin-top:6px"></p>
+        <div id="bgList"></div>
       </div>
     </div>
     <div class="card"><div class="row"><div><h3 style="margin:0">${esc(T('Report a problem', 'समस्या बताएँ'))}</h3><div class="muted">${esc(T('Truck did not come, or you saw garbage dumped?', 'ट्रक नहीं आया, या कहीं कचरा फेंका दिखा?'))}</div></div><div class="sp"></div><button class="btn alt sm" id="cRepM">${esc(T('Truck missed me', 'ट्रक नहीं आया'))}</button><button class="btn alt sm" id="cRepD">${esc(T('New dump site', 'नया कचरा स्थल'))}</button></div></div>
@@ -903,6 +902,20 @@ async function citizenHome(v, d) {
     try { await api('report', { kind: 'missed', householdId: h.HouseholdID, note: o.note || '' }); toast(T('Report sent to the in-charge.', 'रिपोर्ट प्रभारी को भेज दी गई।')); } catch (e) { toast(e.message, true); }
   };
   $('#cRepD').onclick = () => reportDump(h);
+  async function loadBags() {
+    try {
+      const b = await api('myBags', { id: h.HouseholdID }); if (!$('#bgList')) return;
+      $('#bgList').innerHTML = b.bags.length ? `<div class="scroll"><table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th>${esc(T('Last pickup', 'पिछला पिकअप'))}</th></tr></thead><tbody>${b.bags.map(x => `<tr><td><b>${esc(x.BagID)}</b></td><td><span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span></td><td>${x.Uses ? fmtD(x.LastTime) + ' · ' + f1(x.LastKg) + ' kg · <span class="tag ${String(x.LastSeg).toLowerCase()}">${esc(x.LastSeg)}</span>' : '<span class="muted">' + esc(T('Not used yet', 'अभी उपयोग नहीं')) + '</span>'}</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted" style="margin-top:8px">${esc(T('No bags registered yet.', 'अभी कोई बैग पंजीकृत नहीं।'))}</p>`;
+    } catch (e) {}
+  }
+  async function regBag(code) {
+    $('#bgMsg').textContent = T('Registering…', 'पंजीकरण हो रहा है…');
+    try { const r = await api('bagRegister', { householdId: h.HouseholdID, bagId: code }); $('#bgMsg').textContent = ''; $('#bgCode').value = ''; toast(T('Bag registered: ', 'बैग पंजीकृत: ') + r.bag.BagID + ' (' + r.bag.Stream + ')'); loadBags(); }
+    catch (e) { $('#bgMsg').textContent = e.message; }
+  }
+  $('#bgScan').onclick = () => scanQR(t => { if (t.bag) regBag(t.bag); else $('#bgMsg').textContent = T('That QR is not a WasteWise bag code.', 'यह QR वेस्टवाइज बैग कोड नहीं है।'); });
+  $('#bgAdd').onclick = () => { const c = $('#bgCode').value.trim().toUpperCase(); if (c) regBag(c); };
+  loadBags();
   $('#cSwitch').onclick = () => { try { localStorage.removeItem('ww_hh'); } catch (e) {} route(); };
 
   const m = makeMap($('#cMap'), { zoom: 16 }); S.maps.cMap = m;
@@ -971,6 +984,8 @@ VIEWS.driver = async v => {
 };
 
 function parseTag(text) {
+  const bm = String(text || '').trim().match(/^(?:WWBAG\|)?(BG-[WD]\d{4,})$/i);
+  if (bm) return { bag: bm[1].toUpperCase() };
   const m = String(text || '').trim().match(/^WW\|([A-Za-z0-9-]+)\|(Wet|Dry)$/i);
   return m ? { hh: m[1].toUpperCase(), stream: m[2][0].toUpperCase() + m[2].slice(1).toLowerCase() } : null;
 }
@@ -1068,6 +1083,19 @@ async function driverTrip(v, trip, loc0) {
     $('#bOpen').onclick = openArrival;
   }
 
+  async function handleScan(t) {
+    if (!t.bag) { pickupForm(t.hh, t.stream); return; }
+    try {
+      const d = await api('bagInfo', { bagId: t.bag });
+      if (!d.found) { toast(T('This bag code is not from WasteWise.', 'यह बैग कोड वेस्टवाइज का नहीं है।'), true); openArrival(); return; }
+      if (d.household) { pickupForm(d.household.HouseholdID, d.bag.Stream, { bag: d.bag, hh: d.household }); return; }
+      const mm = modal(`<h3>${esc(T('Bag not registered', 'बैग पंजीकृत नहीं'))}</h3><p>${esc(d.bag.BagID)} · ${esc(d.bag.Stream)}</p><p class="muted">${esc(T('Nobody has registered this bag, so we cannot tell whose it is. Tell the citizen to register it in the Citizen app. You may collect it, but it cannot be traced to a household.', 'इस बैग को किसी ने पंजीकृत नहीं किया, इसलिए पता नहीं किसका है। नागरिक से कहें कि नागरिक ऐप में पंजीकृत करे। आप ले सकते हैं, पर घर तक पता नहीं चलेगा।'))}</p>
+        <div class="row" style="margin-top:12px"><button class="btn bad" id="uAnon">${esc(T('Collect anyway (not traceable)', 'फिर भी लें (पता नहीं चलेगा)'))}</button><button class="btn grey" id="uNo">${esc(T('Leave the bag', 'बैग छोड़ दें'))}</button></div>`);
+      $('#uNo').onclick = () => { mm.close(); openArrival(); };
+      $('#uAnon').onclick = () => { mm.close(); pickupForm('', d.bag.Stream, { bag: d.bag, anon: true }); };
+    } catch (e) { toast(e.message, true); openArrival(); }
+  }
+
   /* pop-up shown when the truck reaches a pickup point: scan, enter by hand, finish, or skip with a reason */
   let sheet = null;
   function openArrival() {
@@ -1080,7 +1108,7 @@ async function driverTrip(v, trip, loc0) {
       <button class="btn big" id="aDone" style="width:100%" ${D.here ? '' : 'disabled'}>${esc(nt === last ? T('Collection done · drive to MRF', 'संग्रह पूरा · एमआरएफ चलें') : T('Collection done · next stop', 'संग्रह पूरा · अगला पड़ाव'))}</button>
       <button class="btn bad" id="aSkip" style="width:100%;margin-top:8px">${esc(T('Skip this stop (reason needed)', 'यह पड़ाव छोड़ें (कारण ज़रूरी)'))}</button>`);
     mm.el.addEventListener('mousedown', e => { if (e.target === mm.el) e.stopImmediatePropagation(); }, true);
-    $('#aScan').onclick = () => { mm.close(); scanQR(t => pickupForm(t.hh, t.stream), openArrival); };
+    $('#aScan').onclick = () => { mm.close(); scanQR(handleScan, openArrival); };
     $('#aMan').onclick = () => { mm.close(); pickupForm('', 'Wet'); };
     $('#aDone').onclick = () => { D.done.add(cur.PlaceID); mm.close(); startDrive(); };
     $('#aSkip').onclick = () => skipReason(mm, cur);
@@ -1103,12 +1131,13 @@ async function driverTrip(v, trip, loc0) {
     };
   }
 
-  function pickupForm(hh, stream) {
+  function pickupForm(hh, stream, bagCtx) {
     const cur = stops[D.k];
     const st = { stream: stream || 'Wet', seg: 'Good' };
-    const mm = modal(`<h3>${esc(cur.Name)}</h3>
-      <label class="f">${esc(T('Household ID', 'घर की ID'))}</label><input class="i" id="pHH" value="${esc(hh)}" placeholder="HH-D03" autocapitalize="characters">
-      <label class="f">${esc(T('Bag', 'बैग'))}</label><div class="seg" id="pStream"><button data-v="Wet" class="wet">${esc(T('Wet', 'गीला'))}</button><button data-v="Dry" class="dry">${esc(T('Dry', 'सूखा'))}</button><button data-v="Mixed" class="mixed">${esc(T('Mixed', 'मिला'))}</button></div>
+    const bagBox = bagCtx ? `<div class="card" style="background:#EEF7F0;padding:10px;margin:0 0 6px"><div class="muted">${esc(T('Bag', 'बैग'))} <b>${esc(bagCtx.bag.BagID)}</b> · ${esc(bagCtx.bag.Stream)}</div>${bagCtx.hh ? `<div style="font-size:18px;font-weight:800">${esc(bagCtx.hh.Label)}</div><div class="muted">${esc(bagCtx.hh.HouseholdID)} · ${esc(bagCtx.hh.Colony || '')}</div>` : `<div style="font-weight:800;color:var(--bad)">${esc(T('Not registered · cannot be traced', 'पंजीकृत नहीं · पता नहीं चलेगा'))}</div>`}</div>` : '';
+    const mm = modal(`<h3>${esc(cur.Name)}</h3>${bagBox}
+      <label class="f" ${bagCtx ? 'style="display:none"' : ''}>${esc(T('Household ID', 'घर की ID'))}</label><input class="i" id="pHH" value="${esc(hh)}" placeholder="HH-D03" autocapitalize="characters" ${bagCtx ? 'type="hidden"' : ''}>
+      <label class="f" ${bagCtx ? 'style="display:none"' : ''}>${esc(T('Bag', 'बैग'))}</label><div class="seg" id="pStream" ${bagCtx ? 'style="display:none"' : ''}><button data-v="Wet" class="wet">${esc(T('Wet', 'गीला'))}</button><button data-v="Dry" class="dry">${esc(T('Dry', 'सूखा'))}</button><button data-v="Mixed" class="mixed">${esc(T('Mixed', 'मिला'))}</button></div>
       <label class="f">${esc(T('Weight (kg)', 'वज़न (किलो)'))}</label><input class="i" id="pKg" type="number" step="0.1" min="0" inputmode="decimal" placeholder="0.0">
       <label class="f">${esc(T('How well separated?', 'कितना अच्छा अलग किया?'))}</label><div class="seg" id="pSeg"><button data-v="Good" class="good">${esc(T('Good', 'अच्छा'))}</button><button data-v="Partly" class="partly">${esc(T('Partly', 'कुछ'))}</button><button data-v="Poor" class="poor">${esc(T('Poor', 'खराब'))}</button></div>
       <div class="row" style="margin-top:14px"><button class="btn" id="pSave">${esc(T('Save pickup', 'पिकअप सेव करें'))}</button><button class="btn grey" id="pNo">${esc(T('Cancel', 'रद्द करें'))}</button></div><p class="muted" id="pMsg"></p>`);
@@ -1122,7 +1151,7 @@ async function driverTrip(v, trip, loc0) {
       try {
         const id = $('#pHH').value.trim().toUpperCase();
         const params = { tripId: trip.TripID, stream: st.stream, kg: $('#pKg').value, seg: st.seg };
-        if (id) params.householdId = id; else params.placeId = cur.PlaceID;
+        if (bagCtx) { params.bagId = bagCtx.bag.BagID; if (bagCtx.anon) { params.allowAnon = 1; params.placeId = cur.PlaceID; } } else if (id) params.householdId = id; else params.placeId = cur.PlaceID;
         const d = await api('pickup', params);
         D.pk.push(d.pickup); D.here++;
         mm.close(); toast(`${T('Saved', 'सेव हुआ')} · ${f1(d.pickup.WeightKg)} kg ${d.pickup.Stream}${id ? ' · ' + id : ''}`);
@@ -1327,7 +1356,8 @@ VIEWS.incharge = async v => {
       <div class="card"><h3>${esc(T('Smart bins (simulated, concept)', 'स्मार्ट बिन (सिम्युलेटेड, कॉन्सेप्ट)'))}</h3><div id="iBins"></div></div>
     </div></div>
   <div class="grid g2" style="margin-top:12px"><div class="card"><h3>${esc(T('Waste collected, last 14 days (kg)', 'पिछले 14 दिन का कचरा (किलो)'))}</h3><div id="iChart"></div></div>
-  <div class="card"><h3>${esc(T('Latest pickups', 'ताज़ा पिकअप'))}</h3><ul class="feed" id="iFeed"></ul></div></div>`;
+  <div class="card"><h3>${esc(T('Latest pickups', 'ताज़ा पिकअप'))}</h3><ul class="feed" id="iFeed"></ul></div></div>
+  <div class="card" style="margin-top:12px"><h3>${esc(T('Poor segregation: who to visit', 'खराब अलगाव: किसके पास जाएँ'))}</h3><p class="muted" style="margin:0 0 8px">${esc(T('Each bag is registered to a household, so a poorly sorted bag leads straight to the citizen.', 'हर बैग किसी घर से पंजीकृत है, इसलिए खराब बैग सीधे नागरिक तक पहुँचाता है।'))}</p><div id="iFollow" class="scroll"></div></div>`;
   $('#goScr').onclick = () => { location.hash = '#/screen'; };
   const board = await buildLiveBoard($('#iMap'), false);
   $('#showD').onchange = e => { if (e.target.checked) board.dumps.addTo(board.m); else board.m.removeLayer(board.dumps); };
@@ -1355,7 +1385,13 @@ VIEWS.incharge = async v => {
     await board.update(live);
   }
   async function insights() { try { const d = await api('insights'); if (g !== S.gen) return; $('#iChart').innerHTML = chartDays(d.series); } catch (e) {} }
-  tick(); insights(); setTimer(tick, 3000); setTimer(insights, 20000);
+  async function follow() {
+    try {
+      const d = await api('followUps'); if (g !== S.gen || !$('#iFollow')) return;
+      $('#iFollow').innerHTML = d.list.length ? `<table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Household', 'घर'))}</th><th>${esc(T('Bag', 'बैग'))}</th><th>kg</th><th>${esc(T('Sorting', 'अलगाव'))}</th></tr></thead><tbody>${d.list.slice(0, 15).map(x => `<tr><td>${fmtD(x.Time)} ${fmtT(x.Time)}</td><td>${x.HouseholdID ? '<b>' + esc(x.HouseholdID) + '</b> · ' + esc(x.Label) + (x.Colony ? ' · ' + esc(x.Colony) : '') : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${esc(x.BagID)}</td><td>${f1(x.WeightKg)}</td><td><span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No poorly sorted bags yet.', 'अभी कोई खराब अलग बैग नहीं।'))}</p>`;
+    } catch (e) {}
+  }
+  tick(); insights(); follow(); setTimer(tick, 3000); setTimer(insights, 20000); setTimer(follow, 10000);
 };
 
 /* ============================ COMMAND SCREEN (projector) ============================ */
@@ -1410,7 +1446,7 @@ async function adminLive(body) {
 VIEWS.admin = async v => {
   const roles = ['admin'];
   if (!(S.token && roles.indexOf(S.role) >= 0)) { if (!(await needLogin(roles))) return loginGate(v, roles, 'Admin', 'एडमिन'); }
-  const tabs = [['live', 'Live map', 'लाइव नक्शा'], ['places', 'Places', 'स्थान'], ['routes', 'Routes', 'रास्ते'], ['households', 'Households', 'घर'], ['fleet', 'Fleet, users, rates', 'वाहन, यूज़र, दरें'], ['data', 'Data', 'डेटा']];
+  const tabs = [['live', 'Live map', 'लाइव नक्शा'], ['places', 'Places', 'स्थान'], ['routes', 'Routes', 'रास्ते'], ['households', 'Households', 'घर'], ['bags', 'Bags', 'बैग'], ['fleet', 'Fleet, users, rates', 'वाहन, यूज़र, दरें'], ['data', 'Data', 'डेटा']];
   v.innerHTML = `<div class="seg" style="margin-bottom:12px" id="aTabs">${tabs.map(t => `<button data-t="${t[0]}" class="${adminTab === t[0] ? 'on good' : ''}">${esc(T(t[1], t[2]))}</button>`).join('')}</div><div id="aBody"></div>`;
   $$('#aTabs button').forEach(b => b.onclick = () => { adminTab = b.dataset.t; route(); });
   const body = $('#aBody');
@@ -1419,6 +1455,7 @@ VIEWS.admin = async v => {
     else if (adminTab === 'places') await adminPlaces(body);
     else if (adminTab === 'routes') await adminRoutes(body);
     else if (adminTab === 'households') await adminHouseholds(body);
+    else if (adminTab === 'bags') await adminBags(body);
     else if (adminTab === 'fleet') await adminFleet(body);
     else await adminData(body);
   } catch (e) { body.innerHTML = `<div class="card"><p>${esc(e.message)}</p></div>`; }
@@ -1632,6 +1669,33 @@ async function crud(el, cfg) {
 
 /* ---------- Households ---------- */
 function printArea(html) { const p = $('#printArea'); p.innerHTML = html; setTimeout(() => { window.print(); }, 300); }
+function bagLabels(list) {
+  return list.map(b => `<div class="tagcard"><img src="${qrImg('WWBAG|' + b.BagID, 6)}" alt=""><div><div class="brand" style="justify-content:flex-start"><img src="logo.png" alt=""><span>WasteWise Daporijo</span></div><b style="font-size:17pt">${esc(b.BagID)}</b><div style="font-size:13pt;font-weight:700">${b.Stream === 'Wet' ? 'WET · गीला' : 'DRY · सूखा'}</div><div style="font-size:9pt">Register this bag in the WasteWise Citizen app before use.<br>उपयोग से पहले नागरिक ऐप में यह बैग पंजीकृत करें।</div></div></div>`).join('');
+}
+async function adminBags(el) {
+  el.innerHTML = `<div class="grid g2">
+    <div class="card"><h3>${esc(T('Make bags with QR codes', 'QR कोड वाले बैग बनाएँ'))}</h3>
+      <p class="muted">${esc(T('Each bag gets its own code. Print the labels, stick one on each bag and hand the bags to citizens. The citizen registers the bag in the Citizen app. Then a pickup scan shows whose bag it is.', 'हर बैग को अपना कोड मिलता है। लेबल प्रिंट करें, हर बैग पर चिपकाएँ और नागरिकों को दें। नागरिक ऐप में बैग पंजीकृत करता है। फिर स्कैन पर पता चलता है बैग किसका है।'))}</p>
+      <div class="row"><div><label class="f">${esc(T('Wet bags', 'गीले बैग'))}</label><input class="i" id="bgW" type="number" min="0" max="100" value="10" style="width:100px"></div><div><label class="f">${esc(T('Dry bags', 'सूखे बैग'))}</label><input class="i" id="bgD" type="number" min="0" max="100" value="10" style="width:100px"></div></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="bgMake">${esc(T('Make and print labels', 'बनाएँ और लेबल प्रिंट करें'))}</button></div><p class="muted" id="bgMsg"></p></div>
+    <div class="card"><h3>${esc(T('Bag status', 'बैग की स्थिति'))}</h3><div id="bgStat" class="muted">…</div></div></div>
+    <div class="card" style="margin-top:12px"><div class="row"><h3 style="margin:0">${esc(T('All bags', 'सभी बैग'))}</h3><div class="sp"></div><button class="btn grey sm" id="bgPrintOpen">🖨 ${esc(T('Print labels of unregistered bags', 'अपंजीकृत बैगों के लेबल प्रिंट करें'))}</button></div><div class="scroll" id="bgTable" style="margin-top:8px"></div></div>`;
+  let all = [];
+  async function load() {
+    const d = await api('bagList'); all = d.bags.slice().reverse();
+    const reg = all.filter(b => b.HouseholdID).length;
+    $('#bgStat').innerHTML = `<div style="font-size:28px;font-weight:800;color:var(--ink)">${reg} / ${all.length}</div>${esc(T('bags are registered to a household', 'बैग किसी घर से पंजीकृत हैं'))}`;
+    $('#bgTable').innerHTML = all.length ? `<table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th>${esc(T('Registered to', 'किसके नाम'))}</th><th>${esc(T('Date', 'तारीख'))}</th></tr></thead><tbody>${all.slice(0, 200).map(b => `<tr><td><b>${esc(b.BagID)}</b></td><td><span class="tag ${b.Stream.toLowerCase()}">${esc(b.Stream)}</span></td><td>${b.HouseholdID ? esc(b.HouseholdID + ' · ' + b.Label) : '<span class="muted">' + esc(T('Not registered', 'पंजीकृत नहीं')) + '</span>'}</td><td>${b.Registered ? fmtD(b.Registered) : ''}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No bags yet.', 'अभी कोई बैग नहीं।'))}</p>`;
+  }
+  $('#bgMake').onclick = async () => {
+    const btn = $('#bgMake'); btn.disabled = true;
+    try { const d = await api('issueBags', { wet: $('#bgW').value, dry: $('#bgD').value }, { timeout: 40000 }); $('#bgMsg').textContent = d.bags.length + T(' bags made.', ' बैग बने।'); await load(); printArea(bagLabels(d.bags)); }
+    catch (e) { $('#bgMsg').textContent = e.message; }
+    btn.disabled = false;
+  };
+  $('#bgPrintOpen').onclick = () => { const u = all.filter(b => !b.HouseholdID).slice(0, 120); if (!u.length) { toast(T('All bags are registered.', 'सभी बैग पंजीकृत हैं।')); return; } printArea(bagLabels(u)); };
+  await load();
+}
 async function adminHouseholds(el) {
   const pts = S.st.places.filter(p => p.Type === 'Pickup Point');
   const holder = document.createElement('div'); el.appendChild(holder);
@@ -1639,11 +1703,7 @@ async function adminHouseholds(el) {
     tab: 'Households', title: T('Households', 'घर'), cols: [['HouseholdID', 'ID'], ['Label', T('Name', 'नाम')], ['PlaceID', T('Pickup point', 'पिकअप पॉइंट'), r => (PLACE(r.PlaceID) || {}).Name || r.PlaceID], ['Source', T('Source', 'स्रोत')]],
     fields: () => [{ k: 'Label', label: T('Name of household or building', 'घर या भवन का नाम') }, { k: 'PlaceID', label: T('Pickup point', 'पिकअप पॉइंट'), type: 'select', opts: pts.map(p => [p.PlaceID, p.Name]) }, { k: 'Members', label: T('People', 'सदस्य'), type: 'number' }],
     defaults: { Members: 4 }, before: o => { const p = PLACE(o.PlaceID); if (p) { o.Colony = p.Colony; o.Lat = num(o.Lat) || p.Lat; o.Lng = num(o.Lng) || p.Lng; } },
-    extra: `<button class="btn alt sm" id="hPrint">🖨 ${esc(T('Print bag tags', 'बैग टैग प्रिंट करें'))}</button>`,
   });
-  $('#hPrint').onclick = () => {
-    printArea(rows.map(h => `<div class="tagcard"><div><div class="brand" style="justify-content:flex-start"><img src="logo.png" alt=""><span>WasteWise Daporijo<br>${esc(SCHOOL.name)}</span></div><b style="font-size:16pt">${esc(h.HouseholdID)}</b><div>${esc(h.Label)}</div><div style="font-size:9pt">${esc((PLACE(h.PlaceID) || {}).Name || '')}</div></div><div style="text-align:center"><img src="${qrImg('WW|' + h.HouseholdID + '|Wet', 5)}"><div><b>WET / गीला</b></div></div><div style="text-align:center"><img src="${qrImg('WW|' + h.HouseholdID + '|Dry', 5)}"><div><b>DRY / सूखा</b></div></div></div>`).join(''));
-  };
 }
 
 /* ---------- Fleet, users, rates ---------- */
