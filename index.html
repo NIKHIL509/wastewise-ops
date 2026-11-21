@@ -8,7 +8,7 @@
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="lib/leaflet.css">
+<link rel="stylesheet" href="leaflet.css">
 <style>
 :root{
   --green:#1B5E20; --green2:#2E7D32; --green3:#E8F5E9; --ink:#17231A; --ink2:#4A5A4E; --line:#DCE5DD;
@@ -274,9 +274,9 @@ th,td{padding:10px 12px}
 <div id="modalRoot"></div>
 <div id="printArea"></div>
 <script src="config.js"></script>
-<script src="lib/leaflet.js"></script>
-<script src="lib/qrcode.js"></script>
-<script src="lib/html5-qrcode.min.js"></script>
+<script src="leaflet.js"></script>
+<script src="qrcode.js"></script>
+<script src="html5-qrcode.min.js"></script>
 <script>
 /* =====================================================================
    WasteWise Ops: front end. Third app of WasteWise Daporijo.
@@ -1042,7 +1042,7 @@ function scanQR(onText, onCancel) {
     el.onload = () => res(!!window.Html5Qrcode); el.onerror = () => res(false); document.head.appendChild(el);
   });
   loadLib().then(ok => {
-  if (!ok || finished) { if (!ok) $('#qrMsg').textContent = T('Scanner not available. Check that lib/html5-qrcode.min.js is uploaded, or enter the code by hand.', 'स्कैनर उपलब्ध नहीं। lib/html5-qrcode.min.js अपलोड करें, या कोड हाथ से लिखें।'); return; }
+  if (!ok || finished) { if (!ok) $('#qrMsg').textContent = T('Scanner not available. Check that html5-qrcode.min.js is uploaded, or enter the code by hand.', 'स्कैनर उपलब्ध नहीं। lib/html5-qrcode.min.js अपलोड करें, या कोड हाथ से लिखें।'); return; }
   $('#qrMsg').textContent = '';
   sc = new Html5Qrcode('qrReader', { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], useBarCodeDetectorIfSupported: true, verbose: false });
   sc.start({ facingMode: 'environment' }, { fps: 12 }, async txt => {
