@@ -283,7 +283,9 @@ th,td{padding:10px 12px}
    Google Sheet through the Apps Script web app (Code.gs). Real places, routes and
    households are fed in Admin; nothing is hard-coded here.
    ===================================================================== */
-const WEB_APP_URL = 'PASTE_YOUR_OPS_WEB_APP_URL_HERE';
+const WEB_APP_URL_FILE = 'PASTE_YOUR_OPS_WEB_APP_URL_HERE';
+let WEB_APP_URL = WEB_APP_URL_FILE;
+try { const sv = localStorage.getItem('ww_api'); if (WEB_APP_URL_FILE.indexOf('PASTE_YOUR') >= 0 && sv) WEB_APP_URL = sv; } catch (e) {}
 const SURVEY_APPS = [
   { en: 'Survey app 1: households, shops, hostel, dump sites', hi: 'सर्वे ऐप 1: घर, दुकान, हॉस्टल, कचरा स्थल', url: 'https://nikhil509.github.io/wastewise-daporijo/' },
   { en: 'Survey app 2: road and premises survey', hi: 'सर्वे ऐप 2: सड़क और परिसर सर्वे', url: 'https://nikhil509.github.io/dapo100-survey/' },
@@ -659,6 +661,11 @@ async function route() {
     await fn(v);
   } catch (e) {
     v.innerHTML = `<div class="card"><h3>${esc(T('Could not load', 'लोड नहीं हो सका'))}</h3><p>${esc(e.message)}</p><div class="row" style="margin-top:10px"><button class="btn" onclick="S.st=null;route()">${esc(T('Try again', 'फिर कोशिश करें'))}</button></div></div>`;
+    if (WEB_APP_URL.indexOf('PASTE_YOUR') >= 0) {
+      v.innerHTML += `<div class="card" style="margin-top:12px"><h3>Set the backend address</h3><p class="muted">Paste your Apps Script web app address (it ends with /exec). It is saved on this device. To set it for everyone, put it in index.html on the line that says WEB_APP_URL_FILE.</p><input class="i" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec"><div class="row" style="margin-top:10px"><button class="btn" id="apiSave">Save and open</button></div><p class="muted" id="apiMsg"></p></div>`;
+      $('#apiSave').onclick = () => { const u = $('#apiUrl').value.trim(); if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(u)) { $('#apiMsg').textContent = 'That does not look like a web app address ending in /exec.'; return; } try { localStorage.setItem('ww_api', u); } catch (e) {} location.reload(); };
+    }
+
   }
 }
 window.addEventListener('hashchange', route);
