@@ -1003,13 +1003,22 @@ function scanQR(onText, onCancel) {
   stopScanner = stop;
   $('#qrNo').onclick = async () => { finished = true; await stop(); m.close(); if (onCancel) onCancel(); };
   m.onclose = stop;
-  if (!window.Html5Qrcode) { $('#qrMsg').textContent = T('Scanner not available. Enter the ID by hand.', 'स्कैनर उपलब्ध नहीं। ID हाथ से लिखें।'); return; }
+  const loadLib = () => new Promise(res => {
+    if (window.Html5Qrcode) return res(true);
+    $('#qrMsg').textContent = T('Loading scanner…', 'स्कैनर लोड हो रहा है…');
+    const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    el.onload = () => res(!!window.Html5Qrcode); el.onerror = () => res(false); document.head.appendChild(el);
+  });
+  loadLib().then(ok => {
+  if (!ok || finished) { if (!ok) $('#qrMsg').textContent = T('Scanner not available. Check that lib/html5-qrcode.min.js is uploaded, or enter the code by hand.', 'स्कैनर उपलब्ध नहीं। lib/html5-qrcode.min.js अपलोड करें, या कोड हाथ से लिखें।'); return; }
+  $('#qrMsg').textContent = '';
   sc = new Html5Qrcode('qrReader', { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], useBarCodeDetectorIfSupported: true, verbose: false });
   sc.start({ facingMode: 'environment' }, { fps: 12 }, async txt => {
     if (finished) return; const t = parseTag(txt);
     if (!t) { $('#qrMsg').textContent = T('That is not a WasteWise tag.', 'यह वेस्टवाइज टैग नहीं है।'); return; }
     finished = true; await stop(); m.close(); onText(t);
-  }, () => {}).catch(() => { $('#qrMsg').textContent = T('Camera not available. Use "Enter by hand".', 'कैमरा उपलब्ध नहीं। "हाथ से लिखें" चुनें।'); });
+  }, () => {}).catch(() => { $('#qrMsg').textContent = T('Camera not available. Allow camera access, or enter the code by hand.', 'कैमरा उपलब्ध नहीं। कैमरे की अनुमति दें, या कोड हाथ से लिखें।'); });
+  });
 }
 
 async function driverTrip(v, trip, loc0) {
