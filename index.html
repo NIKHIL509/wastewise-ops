@@ -8,7 +8,7 @@
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="leaflet.css">
+<link rel="stylesheet" href="lib/leaflet.css">
 <style>
 :root{
   --green:#1B5E20; --green2:#2E7D32; --green3:#E8F5E9; --ink:#17231A; --ink2:#4A5A4E; --line:#DCE5DD;
@@ -261,7 +261,7 @@ th,td{padding:10px 12px}
 .av{width:36px;height:36px;border-radius:50%;color:#fff;font-weight:600;display:grid;place-items:center;font-size:12px;flex:none}
 .tl{border-left:1px solid var(--line);margin-left:6px;padding-left:20px}.tl>div{position:relative;margin-bottom:18px}.tl>div:before{content:"";position:absolute;left:-27px;top:2px;width:11px;height:11px;border-radius:50%;border:3px solid var(--c,#00C48C);background:#fff}.tl b{font-size:13px;font-weight:600;display:block;margin-bottom:3px}.tl p{font-size:12.5px;line-height:1.5}.tl small{color:#8A8FA3;font-size:11.5px}
 @media(min-width:561px){#navOut{display:none}}
-@media(max-width:980px){.dg1,.dg2,.dg3{grid-template-columns:1fr}.tiles4{grid-template-columns:1fr 1fr}main{padding:14px}.nav{padding:0 8px}}
+@media(max-width:980px){.drv{display:flex!important;flex-direction:column}.drv .dcol{display:contents}.drv #dNext{order:1}.drv .dmap{order:2}.drv .d-h{order:3}.drv .d-s{order:4}.drv .d-t{order:5}.drv .dmap .map.tall{height:min(56vh,460px)}.dg1,.dg2,.dg3{grid-template-columns:1fr}.tiles4{grid-template-columns:1fr 1fr}main{padding:14px}.nav{padding:0 8px}}
 @media(max-width:560px){.top{padding:8px 12px;gap:8px}.top .sub,#bPres{display:none}.top .chip{padding:5px 8px;font-size:12px}.top img.lgo,.top img.school{width:34px;height:34px}.tiles4{gap:10px}.tile{padding:12px 12px;border-radius:26px;gap:9px}.tic{width:36px;height:36px}.tic svg{width:17px;height:17px}.tile b{font-size:17px}.nav a{padding:14px 9px 11px}}
 </style>
 </head>
@@ -273,9 +273,9 @@ th,td{padding:10px 12px}
 <footer id="foot" class="foot"></footer>
 <div id="modalRoot"></div>
 <div id="printArea"></div>
-<script src="leaflet.js"></script>
-<script src="qrcode.js"></script>
-<script src="html5-qrcode.min.js"></script>
+<script src="lib/leaflet.js"></script>
+<script src="lib/qrcode.js"></script>
+<script src="lib/html5-qrcode.min.js"></script>
 <script>
 /* =====================================================================
    WasteWise Ops: front end. Third app of WasteWise Daporijo.
@@ -283,7 +283,7 @@ th,td{padding:10px 12px}
    Google Sheet through the Apps Script web app (Code.gs). Real places, routes and
    households are fed in Admin; nothing is hard-coded here.
    ===================================================================== */
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAdddasjKly-FWSnodNiXI1YI9XJ6Rx3g7eMdkRM6Uek2Q8yvPeLolMKMT96Bk_O0o/exec';
+const WEB_APP_URL = 'PASTE_YOUR_OPS_WEB_APP_URL_HERE';
 const SURVEY_APPS = [
   { en: 'Survey app 1: households, shops, hostel, dump sites', hi: 'सर्वे ऐप 1: घर, दुकान, हॉस्टल, कचरा स्थल', url: 'https://nikhil509.github.io/wastewise-daporijo/' },
   { en: 'Survey app 2: road and premises survey', hi: 'सर्वे ऐप 2: सड़क और परिसर सर्वे', url: 'https://nikhil509.github.io/dapo100-survey/' },
@@ -294,7 +294,7 @@ const SCHOOL = {
   cbse: 'CBSE Affiliation No. 2230086 · School Code 35085',
   event: "National Children's Science Congress 2026–27", theme: 'Sub-theme R5: Waste Management',
   title: 'Project on Solid Waste Segregation (WasteWise Daporijo)',
-  team: 'Yumgam Sorum Tamin · David Pakri Nirin (Class 9)', guide: 'Nikhil Anil',
+  team: 'David Pakri Nirin (Class 9, leader) · Yumgam Sorum Tamin (Class 10)', guide: 'Nikhil Anil',
 };
 const S = { st: null, token: null, role: null, name: null, live: null, paths: {}, timers: [], maps: {}, view: null, hh: null, gen: 0, anims: [] };
 try { S.token = sessionStorage.getItem('ww_tok'); S.role = sessionStorage.getItem('ww_role'); S.name = sessionStorage.getItem('ww_name'); } catch (e) {}
@@ -349,7 +349,14 @@ function api(action, params, opt) {
 function post(action, payload) {
   return fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(Object.assign({ action, token: S.token }, payload)) });
 }
-async function loadStatic() { S.st = await api('static'); S.paths = {}; applyConfig(); return S.st; }
+/* Real depot: Urban Development department vehicle depot, Daporijo (GPS tag 27.982110, 94.217117).
+   The app always uses this position for the Depot, so no database change is needed and every trip starts here. */
+const DEPOT = { Name: 'UD Department vehicle depot', Lat: 27.982110, Lng: 94.217117 };
+function fixDepot(st) {
+  (st.places || []).forEach(p => { if (p.Type === 'Depot') { p.Name = DEPOT.Name; p.Lat = DEPOT.Lat; p.Lng = DEPOT.Lng; p.Source = 'GPS'; p.Notes = 'UD department vehicle depot, GPS tag'; } });
+  return st;
+}
+async function loadStatic() { S.st = fixDepot(await api('static')); S.paths = {}; applyConfig(); return S.st; }
 function applyConfig() {
   const r = $('#ribbon');
   if (S.st && S.st.config.DemoMode) { r.classList.remove('hide'); r.textContent = T('Simulation mode: trips, pickups and weights are simulated. Roads, places, dump sites and survey data are real.', 'सिमुलेशन मोड: ट्रिप, पिकअप और वज़न सिम्युलेटेड हैं। सड़कें, स्थान, कचरा स्थल और सर्वे डेटा असली हैं।'); }
@@ -440,7 +447,14 @@ async function getPath(routeId) {
   if (stops.length < 2) return null;
   let geo = [];
   try { const d = await api('route', { id: routeId }); geo = d.geometry || []; } catch (e) {}
-  let pts = geo.length > 1 ? geo : stops.map(p => [num(p.Lat), num(p.Lng)]);
+  let pts = geo.length > 1 ? geo.slice() : stops.map(p => [num(p.Lat), num(p.Lng)]);
+  /* a saved road line may start at an old depot position: join it to the real first and last stop so the truck starts at the depot */
+  if (geo.length > 1) {
+    const a = stops[0], z = stops[stops.length - 1];
+    if (hav(pts[0][0], pts[0][1], num(a.Lat), num(a.Lng)) > 15) pts.unshift([num(a.Lat), num(a.Lng)]);
+    const e = pts[pts.length - 1];
+    if (hav(e[0], e[1], num(z.Lat), num(z.Lng)) > 15) pts.push([num(z.Lat), num(z.Lng)]);
+  }
   pts = densify(pts, 20);
   if (pts.length > 6000) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 6000) === 0);
   const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + hav(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
@@ -960,12 +974,12 @@ function parseTag(text) {
   const m = String(text || '').trim().match(/^WW\|([A-Za-z0-9-]+)\|(Wet|Dry)$/i);
   return m ? { hh: m[1].toUpperCase(), stream: m[2][0].toUpperCase() + m[2].slice(1).toLowerCase() } : null;
 }
-function scanQR(onText) {
+function scanQR(onText, onCancel) {
   const m = modal(`<h3>${esc(T('Scan the bag QR tag', 'बैग का QR टैग स्कैन करें'))}</h3><div id="qrReader" style="width:100%;min-height:240px;background:#000;border-radius:12px"></div><p class="muted" id="qrMsg" style="margin-top:8px"></p><div class="row" style="margin-top:10px"><button class="btn grey" id="qrNo">${esc(T('Close', 'बंद करें'))}</button></div>`);
   let sc = null, finished = false;
   const stop = async () => { try { if (sc) { await sc.stop(); sc.clear(); } } catch (e) {} sc = null; };
   stopScanner = stop;
-  $('#qrNo').onclick = async () => { finished = true; await stop(); m.close(); };
+  $('#qrNo').onclick = async () => { finished = true; await stop(); m.close(); if (onCancel) onCancel(); };
   m.onclose = stop;
   if (!window.Html5Qrcode) { $('#qrMsg').textContent = T('Scanner not available. Enter the ID by hand.', 'स्कैनर उपलब्ध नहीं। ID हाथ से लिखें।'); return; }
   sc = new Html5Qrcode('qrReader', { formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE], useBarCodeDetectorIfSupported: true, verbose: false });
@@ -980,7 +994,7 @@ async function driverTrip(v, trip, loc0) {
   const path = await getPath(trip.RouteID);
   if (!path) throw new Error('This route has fewer than two stops.');
   let pk = []; try { pk = (await api('tripPickups', { id: trip.TripID })).pickups; } catch (e) {}
-  const D = { trip, path, dist: 0, gi: 0, k: 0, mode: 'demo', f: 6, moving: false, arrived: true, done: new Set(), pk, spd: 0, timer: null, ended: false };
+  const D = { trip, path, dist: 0, gi: 0, k: 0, mode: 'demo', f: 6, moving: false, arrived: true, done: new Set(), pk, spd: 0, timer: null, ended: false, here: 0 };
   if (loc0 && loc0.gi >= 0) { D.gi = loc0.gi; D.dist = path.cum[D.gi]; D.k = Math.max(0, path.stopGi.filter(g => g <= D.gi).length - 1); }
   pk.forEach(x => D.done.add(x.PlaceID));
   const stops = path.stops, last = stops.length - 1;
@@ -988,15 +1002,15 @@ async function driverTrip(v, trip, loc0) {
   const isService = i => i > 0 && i < last;
   const nextTarget = () => { for (let i = D.k + 1; i < last; i++) { if (!D.done.has(stops[i].PlaceID)) return i; } return last; };
 
-  v.innerHTML = `<div class="grid g2">
-    <div class="grid" style="align-content:start">
-      <div class="card"><div class="row"><div><h2 style="margin:0">${esc(route.Name)}</h2><div class="muted">${esc(trip.TripID)} · ${esc((VEH(trip.VehicleID) || {}).Name || '')}</div></div><div class="sp"></div><div style="text-align:right"><div style="font-size:24px;font-weight:800" id="dKg">0.0 kg</div><div class="muted" id="dCnt"></div></div></div>
+  v.innerHTML = `<div class="grid g2 drv">
+    <div class="grid dcol" style="align-content:start">
+      <div class="card d-h"><div class="row"><div><h2 style="margin:0">${esc(route.Name)}</h2><div class="muted">${esc(trip.TripID)} · ${esc((VEH(trip.VehicleID) || {}).Name || '')}</div></div><div class="sp"></div><div style="text-align:right"><div style="font-size:24px;font-weight:800" id="dKg">0.0 kg</div><div class="muted" id="dCnt"></div></div></div>
         <div class="bar" style="margin-top:10px"><i id="dBar" style="width:0%"></i></div></div>
       <div class="card" id="dNext"></div>
-      <div class="card"><h3>${esc(T('Stops', 'पड़ाव'))}</h3><ul class="stops" id="dStops"></ul></div>
-      <div class="card"><h3>${esc(T('This trip', 'यह ट्रिप'))}</h3><div class="scroll"><table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>ID</th><th>${esc(T('Type', 'प्रकार'))}</th><th>kg</th><th>${esc(T('Sorting', 'अलगाव'))}</th></tr></thead><tbody id="dPk"></tbody></table></div></div>
+      <div class="card d-s"><h3>${esc(T('Stops', 'पड़ाव'))}</h3><ul class="stops" id="dStops"></ul></div>
+      <div class="card d-t"><h3>${esc(T('This trip', 'यह ट्रिप'))}</h3><div class="scroll"><table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>ID</th><th>${esc(T('Type', 'प्रकार'))}</th><th>kg</th><th>${esc(T('Sorting', 'अलगाव'))}</th></tr></thead><tbody id="dPk"></tbody></table></div></div>
     </div>
-    <div class="card"><div id="dMap" class="map tall"></div>
+    <div class="card dmap"><div id="dMap" class="map tall"></div>
       <div class="row" style="margin-top:10px">
         <button class="btn grey sm" id="bMute">${esc(T('Simulate lost signal (30 s)', 'सिग्नल जाना दिखाएँ (30 सेकंड)'))}</button>
         <div class="seg" style="max-width:260px"><button id="mDemo" class="on good">${esc(T('Demo drive', 'डेमो ड्राइव'))}</button><button id="mGps">${esc(T('Real GPS', 'असली GPS'))}</button></div>
@@ -1048,17 +1062,44 @@ async function driverTrip(v, trip, loc0) {
       el.innerHTML = `<div class="muted">${esc(T('At the depot', 'डिपो पर'))}</div><h2 style="margin:0">${esc(T('Ready to go', 'चलने को तैयार'))}</h2><p>${esc(T('First stop: ', 'पहला पड़ाव: '))}<b>${esc(t.Name)}</b></p><button class="btn big" id="bGo">${esc(T('Drive to first stop', 'पहले पड़ाव पर चलें'))}</button>`;
       $('#bGo').onclick = startDrive; return;
     }
-    const nt = nextTarget();
     el.innerHTML = `<div class="muted">${esc(T('Arrived at', 'पहुँच गए'))}</div><h2 style="margin:0">${esc(cur.Name)}</h2>
-      <div class="row" style="margin:12px 0"><button class="btn big" id="bScan">📷 ${esc(T('Scan bag', 'बैग स्कैन करें'))}</button><button class="btn alt big" id="bMan">⌨️ ${esc(T('Enter by hand', 'हाथ से लिखें'))}</button></div>
-      <div class="row"><button class="btn grey" id="bNext">${esc(nt === last ? T('Done here · drive to MRF', 'यहाँ पूरा · एमआरएफ चलें') : T('Done here · next stop', 'यहाँ पूरा · अगला पड़ाव'))}</button>${D.k > 0 && D.k < last ? `<button class="btn bad sm" id="bSkip">${esc(T('Skip this stop', 'यह पड़ाव छोड़ें'))}</button>` : ''}</div>`;
-    $('#bScan').onclick = () => scanQR(t => pickupForm(t.hh, t.stream));
-    $('#bMan').onclick = () => pickupForm('', 'Wet');
-    $('#bNext').onclick = () => { D.done.add(cur.PlaceID); startDrive(); };
-    if ($('#bSkip')) $('#bSkip').onclick = async () => {
-      const o = await editor(T('Skip this stop', 'यह पड़ाव छोड़ें'), [{ k: 'reason', label: T('Reason', 'कारण'), type: 'select', opts: [['Bags not ready', T('Bags not ready', 'बैग तैयार नहीं')], ['Road blocked', T('Road blocked', 'सड़क बंद')], ['Truck full', T('Truck full', 'ट्रक भरा')]] }], { reason: 'Bags not ready' });
-      if (!o) return;
-      try { await api('skip', { tripId: trip.TripID, placeId: cur.PlaceID, reason: o.reason }); D.done.add(cur.PlaceID); toast(T('Stop skipped. The in-charge and the citizen are told.', 'पड़ाव छोड़ा। प्रभारी और नागरिक को बताया गया।')); startDrive(); } catch (e) { toast(e.message, true); }
+      <p class="muted">${esc(D.here ? D.here + T(' pickup(s) saved here', ' पिकअप यहाँ सेव') : T('No pickup saved yet.', 'अभी कोई पिकअप सेव नहीं।'))}</p>
+      <button class="btn big" id="bOpen">${esc(T('Open pickup screen', 'पिकअप स्क्रीन खोलें'))}</button>`;
+    $('#bOpen').onclick = openArrival;
+  }
+
+  /* pop-up shown when the truck reaches a pickup point: scan, enter by hand, finish, or skip with a reason */
+  let sheet = null;
+  function openArrival() {
+    if (D.ended || D.moving || D.k === 0 || D.k === last) return;
+    if (sheet) { try { sheet.close(); } catch (e) {} }
+    const cur = stops[D.k], nt = nextTarget();
+    const mm = sheet = modal(`<div class="muted">${esc(T('Arrived at', 'पहुँच गए'))}</div><h2 style="margin:0 0 4px">${esc(cur.Name)}</h2>
+      <p class="muted">${esc(D.here ? D.here + T(' pickup(s) saved here. Add more or finish.', ' पिकअप सेव। और जोड़ें या पूरा करें।') : T('Collect the bags, then scan or enter each one. Or skip with a reason.', 'बैग लें, फिर हर बैग स्कैन करें या लिखें। या कारण बताकर छोड़ें।'))}</p>
+      <div class="row" style="margin:12px 0"><button class="btn big" id="aScan">📷 ${esc(T('Scan bag', 'बैग स्कैन करें'))}</button><button class="btn alt big" id="aMan">⌨️ ${esc(T('Enter by hand', 'हाथ से लिखें'))}</button></div>
+      <button class="btn big" id="aDone" style="width:100%" ${D.here ? '' : 'disabled'}>${esc(nt === last ? T('Collection done · drive to MRF', 'संग्रह पूरा · एमआरएफ चलें') : T('Collection done · next stop', 'संग्रह पूरा · अगला पड़ाव'))}</button>
+      <button class="btn bad" id="aSkip" style="width:100%;margin-top:8px">${esc(T('Skip this stop (reason needed)', 'यह पड़ाव छोड़ें (कारण ज़रूरी)'))}</button>`);
+    mm.el.addEventListener('mousedown', e => { if (e.target === mm.el) e.stopImmediatePropagation(); }, true);
+    $('#aScan').onclick = () => { mm.close(); scanQR(t => pickupForm(t.hh, t.stream), openArrival); };
+    $('#aMan').onclick = () => { mm.close(); pickupForm('', 'Wet'); };
+    $('#aDone').onclick = () => { D.done.add(cur.PlaceID); mm.close(); startDrive(); };
+    $('#aSkip').onclick = () => skipReason(mm, cur);
+  }
+  function skipReason(mm, cur) {
+    const opts = [['Bags not ready', T('Bags not ready', 'बैग तैयार नहीं')], ['Nobody at home', T('Nobody at home', 'घर पर कोई नहीं')], ['Road blocked', T('Road blocked', 'सड़क बंद')], ['Truck full', T('Truck full', 'ट्रक भरा')], ['Other', T('Other', 'अन्य')]];
+    let pick = '';
+    mm.el.querySelector('.box').innerHTML = `<h3>${esc(T('Why skip ', 'क्यों छोड़ रहे हैं '))}${esc(cur.Name)}?</h3><p class="muted">${esc(T('The reason is sent to the in-charge and the citizen. You must give one to continue.', 'कारण प्रभारी और नागरिक को जाएगा। आगे बढ़ने के लिए कारण देना ज़रूरी है।'))}</p>
+      <div class="seg" id="rSeg" style="flex-wrap:wrap">${opts.map(o => `<button data-v="${esc(o[0])}">${esc(o[1])}</button>`).join('')}</div>
+      <input class="i hide" id="rTxt" maxlength="80" placeholder="${esc(T('Write the reason', 'कारण लिखें'))}" style="margin-top:10px">
+      <div class="row" style="margin-top:14px"><button class="btn bad" id="rOk" disabled>${esc(T('Skip and continue', 'छोड़ें और आगे बढ़ें'))}</button><button class="btn grey" id="rBack">${esc(T('Back', 'वापस'))}</button></div><p class="muted" id="rMsg"></p>`;
+    const ok = () => { const t = $('#rTxt').value.trim(); $('#rOk').disabled = !(pick && (pick !== 'Other' || t.length >= 3)); };
+    $$('#rSeg button', mm.el).forEach(b => b.onclick = () => { pick = b.dataset.v; $$('#rSeg button', mm.el).forEach(x => { const on = x === b; x.classList.toggle('on', on); x.style.background = on ? '#0F6E44' : ''; x.style.color = on ? '#fff' : ''; }); $('#rTxt').classList.toggle('hide', pick !== 'Other'); if (pick === 'Other') $('#rTxt').focus(); ok(); });
+    $('#rTxt').oninput = ok;
+    $('#rBack').onclick = () => { mm.close(); openArrival(); };
+    $('#rOk').onclick = async () => {
+      const reason = pick === 'Other' ? 'Other: ' + $('#rTxt').value.trim() : pick; $('#rOk').disabled = true;
+      try { await api('skip', { tripId: trip.TripID, placeId: cur.PlaceID, reason }); D.done.add(cur.PlaceID); mm.close(); toast(T('Stop skipped. The in-charge and the citizen are told.', 'पड़ाव छोड़ा। प्रभारी और नागरिक को बताया गया।')); startDrive(); }
+      catch (e) { $('#rMsg').textContent = e.message; $('#rOk').disabled = false; }
     };
   }
 
@@ -1075,7 +1116,7 @@ async function driverTrip(v, trip, loc0) {
     $$('#pStream button', mm.el).forEach(b => b.onclick = () => { st.stream = b.dataset.v; sync(); });
     $$('#pSeg button', mm.el).forEach(b => b.onclick = () => { st.seg = b.dataset.v; sync(); });
     sync(); setTimeout(() => $('#pKg') && $('#pKg').focus(), 80);
-    $('#pNo').onclick = mm.close;
+    $('#pNo').onclick = () => { mm.close(); openArrival(); };
     $('#pSave').onclick = async () => {
       const btn = $('#pSave'); btn.disabled = true;
       try {
@@ -1083,23 +1124,23 @@ async function driverTrip(v, trip, loc0) {
         const params = { tripId: trip.TripID, stream: st.stream, kg: $('#pKg').value, seg: st.seg };
         if (id) params.householdId = id; else params.placeId = cur.PlaceID;
         const d = await api('pickup', params);
-        D.pk.push(d.pickup); D.done.add(d.pickup.PlaceID || cur.PlaceID);
+        D.pk.push(d.pickup); D.here++;
         mm.close(); toast(`${T('Saved', 'सेव हुआ')} · ${f1(d.pickup.WeightKg)} kg ${d.pickup.Stream}${id ? ' · ' + id : ''}`);
-        renderNext();
+        renderNext(); openArrival();
       } catch (e) { $('#pMsg').textContent = e.message; btn.disabled = false; }
     };
   }
 
   function arrive() {
-    clearInterval(D.timer); D.moving = false; D.arrived = true; D.k = D.target; D.spd = 0;
+    clearInterval(D.timer); D.moving = false; D.arrived = true; D.k = D.target; D.spd = 0; D.here = 0;
     D.dist = path.cum[path.stopGi[D.k]]; D.gi = path.stopGi[D.k]; moveTruck(); pingNow(); renderNext();
-    if (D.k !== last) toast(T('Arrived: ', 'पहुँच गए: ') + stops[D.k].Name);
+    if (D.k !== last) openArrival();
   }
   function startDrive() {
-    D.target = nextTarget(); D.moving = true; D.arrived = false; renderNext();
+    D.target = nextTarget(); D.moving = true; D.arrived = false; D.here = 0; if (sheet) { try { sheet.close(); } catch (e) {} } renderNext(); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
     clearInterval(D.timer);
     if (D.mode === 'demo') {
-      D.timer = setInterval(() => {
+      D.timer = setInterval(() => { try {
         const tgi = path.stopGi[D.target];
         const base = (num(S.st.config.AvgSpeedKmh, 20) / 3.6) * D.f;
         const rem0 = path.cum[tgi] - D.dist;
@@ -1110,7 +1151,7 @@ async function driverTrip(v, trip, loc0) {
         moveTruck();
         if (D.gi >= tgi) { arrive(); return; }
         const rem = $('#dNext h2 + div'); if (rem) rem.textContent = Math.max(0, Math.round(path.cum[tgi] - D.dist)) + ' m';
-      }, 500);
+      } catch (err) { clearInterval(D.timer); D.moving = false; toast(T('Demo drive stopped: ', 'डेमो ड्राइव रुकी: ') + err.message, true); renderNext(); } }, 500);
       S.timers.push(D.timer);
     }
   }
@@ -1358,7 +1399,7 @@ VIEWS.screen = async v => {
 /* ============================ ADMIN ============================ */
 let adminTab = 'places';
 const PTYPES = ['Depot', 'MRF', 'Pickup Point', 'Public Bin', 'Dump Site', 'Market', 'Landmark'];
-async function refreshStatic() { S.paths = {}; S.st = await api('static'); applyConfig(); }
+async function refreshStatic() { S.paths = {}; S.st = fixDepot(await api('static')); applyConfig(); }
 
 async function adminLive(body) {
   body.innerHTML = `<div class="card"><h3>${esc(T('Live trucks', 'लाइव ट्रक'))}</h3><div id="aLive" class="map tall"></div><div id="aLiveT" style="margin-top:8px"></div></div>`;
