@@ -335,6 +335,28 @@ function ids(route) { return String(route.StopPlaceIDs || '').split(',').map(s =
 
 /* ---------- backend calls ---------- */
 let cbN = 0;
+const FRIENDLY = {
+  'The server is slow or offline.': 'No connection. Check the internet and try again.',
+  'Network error.': 'No connection. Check the internet and try again.',
+  'Not allowed for this role.': 'You do not have permission for this. Log in with the right role.',
+  'Not allowed.': 'You do not have permission for this. Log in with the right role.',
+  'Alert not found': 'This alert is already closed. Refresh the page.',
+  'Trip not found': 'This trip is no longer there. Refresh the page.',
+  'Place not found': 'That place was not found. Refresh the page and try again.',
+  'Route not found': 'That route was not found. Refresh the page and try again.',
+  'Bin not found': 'That bin was not found. Refresh the page and try again.',
+  'Not found': 'That item was not found. Refresh the page and try again.',
+  'Bad key': 'Something went wrong. Refresh the page and try again.',
+  'Bad status': 'Something went wrong. Refresh the page and try again.',
+  'Unknown tab': 'Something went wrong. Refresh the page and try again.',
+  'No data': 'There is nothing to show yet.',
+  'No bag waiting for inspection with that code.': 'No bag with this code is waiting to be checked. It may already be done.',
+  'This trip is not running.': 'This trip has ended. Start a new trip.',
+  'This trip is already received.': 'This load was already received.',
+  'This bag was already scanned on this trip.': 'You already scanned this bag on this trip.',
+  'This bag was already inspected.': 'This bag was already checked.'
+};
+const friendly = m => FRIENDLY[m] || m;
 function api(action, params, opt) {
   params = params || {}; opt = opt || {};
   return new Promise((resolve, reject) => {
@@ -342,16 +364,16 @@ function api(action, params, opt) {
     const cb = 'wwcb' + (++cbN) + Date.now().toString(36);
     const q = new URLSearchParams(Object.assign({ action, callback: cb }, S.token ? { token: S.token } : {}, params));
     const s = document.createElement('script');
-    const t = setTimeout(() => { done(); reject(new Error('The server is slow or offline.')); }, opt.timeout || 20000);
+    const t = setTimeout(() => { done(); reject(new Error(friendly('The server is slow or offline.'))); }, opt.timeout || 20000);
     function done() { clearTimeout(t); delete window[cb]; s.remove(); }
     window[cb] = d => {
       done();
       if (d && d.status === 'error') {
         if (/log in again/i.test(d.message)) { logout(true); }
-        reject(new Error(d.message));
+        reject(new Error(friendly(d.message)));
       } else resolve(d);
     };
-    s.onerror = () => { done(); reject(new Error('Network error.')); };
+    s.onerror = () => { done(); reject(new Error(friendly('Network error.'))); };
     s.src = WEB_APP_URL + '?' + q.toString();
     document.head.appendChild(s);
   });
@@ -915,7 +937,13 @@ async function citizenHome(v, d) {
   $('#cRepM').onclick = async () => {
     const o = await editor(T('Truck missed my pickup', 'ट्रक मेरा पिकअप चूक गया'), [{ k: 'note', label: T('What happened? (optional)', 'क्या हुआ? (वैकल्पिक)') }], {});
     if (!o) return;
-    try { await api('report', { kind: 'missed', householdId: h.HouseholdID, note: o.note || '' }); toast(T('Report sent to the in-charge.', 'रिपोर्ट प्रभारी को भेज दी गई।')); } catch (e) { toast(e.message, true); }
+    try {
+      const r = await api('report', { kind: 'missed', householdId: h.HouseholdID, note: o.note || '' });
+      if (r.outcome === 'skipped') bagPop('warn', T('Your stop was skipped today', 'आज आपका पड़ाव छोड़ा गया'), T('Driver note: ' + (r.reason || 'no reason was written'), 'ड्राइवर का नोट: ' + (r.reason || 'कोई कारण नहीं लिखा')), T('The in-charge has your report and will reply here.', 'प्रभारी के पास आपकी रिपोर्ट है और वे यहाँ जवाब देंगे।'));
+      else if (r.outcome === 'picked') bagPop('warn', T('Our record shows a pickup today', 'हमारे रिकॉर्ड में आज पिकअप दर्ज है'), T('Picked up at ' + fmtT(r.time) + ', ' + r.kg + ' kg.', fmtT(r.time) + ' बजे, ' + r.kg + ' किलो उठाया गया।'), T('The in-charge has your report too, in case this is wrong.', 'अगर यह गलत है तो प्रभारी के पास भी आपकी रिपोर्ट है।'));
+      else bagPop(true, T('Report sent', 'रिपोर्ट भेजी गई'), T('We have no driver note yet.', 'अभी ड्राइवर का कोई नोट नहीं है।'), T('The in-charge will look into it. The reply will show on this page.', 'प्रभारी देखेंगे। जवाब इसी पेज पर दिखेगा।'));
+      loadNotices();
+    } catch (e) { bagPop(false, T('Report not sent', 'रिपोर्ट नहीं भेजी गई'), e.message, ''); }
   };
   $('#cRepD').onclick = () => reportDump(h);
   async function loadBags() {
@@ -924,10 +952,24 @@ async function citizenHome(v, d) {
       $('#bgList').innerHTML = b.bags.length ? `<div class="scroll"><table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th>${esc(T('Last pickup', 'पिछला पिकअप'))}</th></tr></thead><tbody>${b.bags.map(x => `<tr><td><b>${esc(x.BagID)}</b></td><td><span class="tag ${x.Stream.toLowerCase()}">${esc(x.Stream)}</span></td><td>${x.Uses ? fmtD(x.LastTime) + ' · ' + f1(x.LastKg) + ' kg · <span class="tag ${String(x.LastSeg).toLowerCase()}">${esc(x.LastSeg)}</span>' : '<span class="muted">' + esc(T('Not used yet', 'अभी उपयोग नहीं')) + '</span>'}</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted" style="margin-top:8px">${esc(T('No bags registered yet.', 'अभी कोई बैग पंजीकृत नहीं।'))}</p>`;
     } catch (e) {}
   }
+  function bagPop(ok, title, body, sub) {
+    const col = ok === 'warn' ? '#B26A00' : ok ? '#0F6E44' : '#B3261E';
+    const mm = modal(`<div style="text-align:center"><div style="width:64px;height:64px;border-radius:50%;background:${col};color:#fff;font-size:38px;line-height:64px;margin:0 auto 10px">${ok === 'warn' ? 'i' : ok ? '✓' : '!'}</div><h2 style="margin:0 0 6px;color:${col}">${esc(title)}</h2><p style="margin:0 0 4px;font-size:16px">${esc(body)}</p>${sub ? `<p class="muted" style="margin:0 0 10px">${esc(sub)}</p>` : '<div style="height:10px"></div>'}<button class="btn big" id="bpOk" style="width:100%;background:${col}">OK</button></div>`);
+    $('#bpOk').onclick = mm.close;
+    try { if (navigator.vibrate) navigator.vibrate(ok ? 80 : [80, 60, 80]); } catch (e) {}
+  }
   async function regBag(code) {
     $('#bgMsg').textContent = T('Registering…', 'पंजीकरण हो रहा है…');
-    try { const r = await api('bagRegister', { householdId: h.HouseholdID, bagId: code }); $('#bgMsg').textContent = ''; $('#bgCode').value = ''; toast(T('Bag registered: ', 'बैग पंजीकृत: ') + r.bag.BagID + ' (' + r.bag.Stream + ')'); loadBags(); }
-    catch (e) { $('#bgMsg').textContent = e.message; }
+    try {
+      const r = await api('bagRegister', { householdId: h.HouseholdID, bagId: code }); $('#bgMsg').textContent = ''; $('#bgCode').value = '';
+      const nm = r.bag.BagID + ' · ' + (r.bag.Stream === 'Wet' ? T('wet bag', 'गीला बैग') : T('dry bag', 'सूखा बैग'));
+      if (r.already) bagPop(true, T('Already registered', 'पहले से पंजीकृत'), nm, T('This bag is already yours. Hand it to the driver.', 'यह बैग पहले से आपका है। ड्राइवर को दें।'));
+      else bagPop(true, T('Bag registered', 'बैग पंजीकृत हुआ'), nm, T('It is now linked to your household: ' + h.Label + '. Fill it and hand it to the driver.', 'यह अब आपके घर से जुड़ गया: ' + h.Label + '। इसे भरकर ड्राइवर को दें।'));
+      loadBags();
+    } catch (e) {
+      $('#bgMsg').textContent = '';
+      bagPop(false, T('Bag not registered', 'बैग पंजीकृत नहीं हुआ'), e.message, '');
+    }
   }
   $('#bgScan').onclick = () => scanQR(t => { if (t.bag) regBag(t.bag); else $('#bgMsg').textContent = T('That QR is not a WasteWise bag code.', 'यह QR वेस्टवाइज बैग कोड नहीं है।'); });
   $('#bgAdd').onclick = () => { const c = $('#bgCode').value.trim().toUpperCase(); if (c) regBag(c); };
@@ -941,7 +983,20 @@ async function citizenHome(v, d) {
     $('#cNotices').innerHTML = `<div class="card"><div class="row"><h3 style="margin:0">${esc(T('Warnings and fines', 'चेतावनी और जुर्माना'))}${sim}</h3><div class="sp"></div>${n.fineDue ? `<div style="text-align:right"><div class="muted">${esc(T('Fine due', 'देय जुर्माना'))}</div><div style="font-size:24px;font-weight:800;color:var(--bad)">₹${n.fineDue}</div></div>` : ''}</div>
       <p class="muted" style="margin:6px 0">${esc(T('The MRF checks every bag. Partly separated: a warning. Poor: a fine. Partly separated ' + n.rules.repeatN + ' times in ' + n.rules.windowDays + ' days: a fine of ₹' + n.rules.finePartly + '. Poor fine: ₹' + n.rules.finePoor + '.', 'एमआरएफ हर बैग जाँचता है। कुछ अलग: चेतावनी। खराब: जुर्माना। ' + n.rules.windowDays + ' दिन में ' + n.rules.repeatN + ' बार कुछ अलग: ₹' + n.rules.finePartly + ' जुर्माना। खराब का जुर्माना: ₹' + n.rules.finePoor + '।'))}</p>
       ${n.partlyRecent ? `<p style="margin:0 0 6px"><b>${esc(T('Partly separated bags in the last ' + n.rules.windowDays + ' days: ', 'पिछले ' + n.rules.windowDays + ' दिन में कुछ अलग बैग: '))}${n.partlyRecent} / ${n.rules.repeatN}</b></p>` : ''}
-      ${n.notices.length ? `<ul class="feed">${n.notices.map(x => `<li>${fmtD(x.Time)} · ${esc(x.BagID)} · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span> ${x.Action === 'Fine' ? '<b style="color:var(--bad)">' + esc(T('Fine ₹' + x.FineRs, 'जुर्माना ₹' + x.FineRs)) + '</b> (' + esc(x.Status || 'Due') + ')' : x.Action === 'Warning' ? '<b style="color:#B26A00">' + esc(T('Warning', 'चेतावनी')) + '</b>' : esc(T('Well done', 'शाबाश'))}${x.Reason ? '<div class="muted">' + esc(x.Reason) + '</div>' : ''}</li>`).join('')}</ul>` : `<p class="muted">${esc(T('No bag has been checked yet.', 'अभी किसी बैग की जाँच नहीं हुई।'))}</p>`}</div>`;
+      ${n.notices.length ? `<ul class="feed">${n.notices.map(x => `<li>${fmtD(x.Time)} · ${esc(x.BagID)} · <span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span> ${x.Action === 'Fine' ? '<b style="color:var(--bad)">' + esc(T('Fine ₹' + x.FineRs, 'जुर्माना ₹' + x.FineRs)) + '</b> (' + esc(x.Status || 'Due') + ')' : x.Action === 'Warning' ? '<b style="color:#B26A00">' + esc(T('Warning', 'चेतावनी')) + '</b>' : esc(T('Well done', 'शाबाश'))}${x.Reason ? '<div class="muted">' + esc(x.Reason) + '</div>' : ''}${(x.Action === 'Fine' || x.Action === 'Warning') ? (x.Appeal === 'Open' ? '<div class="muted">' + esc(T('Appeal sent. Waiting for the in-charge.', 'अपील भेजी गई। प्रभारी के जवाब का इंतज़ार।')) + '</div>' : x.Appeal === 'Accepted' ? '<div style="color:var(--ok);font-weight:700">' + esc(T('Appeal accepted. ', 'अपील स्वीकार। ')) + esc(x.AppealNote || '') + '</div>' : x.Appeal === 'Rejected' ? '<div style="color:var(--bad);font-weight:700">' + esc(T('Appeal not accepted. ', 'अपील स्वीकार नहीं। ')) + esc(x.AppealNote || '') + '</div>' : '<button class="btn grey sm" data-appeal="' + esc(x.InspectID) + '" style="margin-top:4px">' + esc(T('This is not right? Appeal', 'यह सही नहीं? अपील करें')) + '</button>') : ''}</li>`).join('')}</ul>` : `<p class="muted">${esc(T('No bag has been checked yet.', 'अभी किसी बैग की जाँच नहीं हुई।'))}</p>`}
+      ${(n.reports || []).length ? `<h4 style="margin:12px 0 4px">${esc(T('Your reports', 'आपकी रिपोर्ट'))}</h4><ul class="feed">${n.reports.map(r => `<li>${fmtD(r.Time)} · ${esc(T('Truck missed me', 'ट्रक चूक गया'))} · <b>${esc(r.Status === 'Resolved' ? T('Replied', 'जवाब मिला') : T('Open', 'खुली'))}</b>${r.Outcome === 'skipped' ? '<div class="muted">' + esc(T('Driver note: ', 'ड्राइवर का नोट: ') + (r.DriverReason || '-')) + '</div>' : r.Outcome === 'picked' ? '<div class="muted">' + esc(T('Pickup recorded: ', 'पिकअप दर्ज: ') + fmtT(r.PickedTime) + ', ' + r.PickedKg + ' kg') + '</div>' : ''}${r.Answer ? '<div><b>' + esc(T('Reply: ', 'जवाब: ')) + '</b>' + esc(r.Answer) + '</div>' : ''}</li>`).join('')}</ul>` : ''}</div>`;
+    $$('[data-appeal]').forEach(b => b.onclick = async () => {
+      const o = await editor(T('Appeal this notice', 'इस नोटिस की अपील'), [{ k: 'message', label: T('Why is this not right? (for example: this is not my bag)', 'यह सही क्यों नहीं? (जैसे: यह मेरा बैग नहीं है)'), type: 'textarea' }], {});
+      if (!o) return;
+      try { await api('appeal', { householdId: h.HouseholdID, inspectId: b.dataset.appeal, message: o.message || '' }); bagPop(true, T('Appeal sent', 'अपील भेजी गई'), T('The in-charge will look at it.', 'प्रभारी इसे देखेंगे।'), T('The answer will show on this page.', 'जवाब इसी पेज पर दिखेगा।')); loadNotices(); }
+      catch (e) { bagPop(false, T('Appeal not sent', 'अपील नहीं भेजी गई'), e.message, ''); }
+    });
+    const seenRKey = 'ww_seenr_' + h.HouseholdID; let seenR = 0; try { seenR = Number(localStorage.getItem(seenRKey) || 0); } catch (e) {}
+    const newAns = (n.reports || []).filter(r => r.Status === 'Resolved' && r.AnsweredAt > seenR);
+    if (newAns.length && !popping && !$('.modal')) {
+      try { localStorage.setItem(seenRKey, String(Math.max.apply(null, newAns.map(r => r.AnsweredAt)))); } catch (e) {}
+      bagPop(true, T('Reply from the in-charge', 'प्रभारी का जवाब'), newAns[0].Answer, T('About your report on ' + fmtD(newAns[0].Time), fmtD(newAns[0].Time) + ' की आपकी रिपोर्ट के बारे में'));
+    }
     let seen = 0; try { seen = Number(localStorage.getItem(seenKey) || 0); } catch (e) {}
     const fresh = n.notices.filter(x => x.Time > seen && (x.Action === 'Fine' || x.Action === 'Warning')).reverse();
     if (fresh.length && !popping && !$('.modal')) {
@@ -1446,8 +1501,12 @@ VIEWS.incharge = async v => {
     const th = await trucksHtml(live); if (g !== S.gen) return;
     $('#iTrucks').innerHTML = th;
     $('#iFeed').innerHTML = feedHtml(live);
-    $('#iAlerts').innerHTML = live.alerts.length ? live.alerts.map(a => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="tag ${/Bin full|Missed|dump/i.test(a.Type) ? 'poor' : 'partly'}">${esc(a.Type)}</span><span style="flex:1">${esc(a.Message)}</span><button class="btn sm grey" data-res="${esc(a.AlertID)}">${esc(T('Resolve', 'हल'))}</button></div>`).join('') : `<p class="muted">${esc(T('No open alerts.', 'कोई खुला अलर्ट नहीं।'))}</p>`;
-    $$('[data-res]').forEach(b => b.onclick = async () => { try { await api('resolveAlert', { id: b.dataset.res }); tick(); } catch (e) { toast(e.message, true); } });
+    $('#iAlerts').innerHTML = live.alerts.length ? live.alerts.map(a => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="tag ${/Bin full|Missed|dump/i.test(a.Type) ? 'poor' : 'partly'}">${esc(a.Type)}</span><span style="flex:1">${esc(a.Message)}</span>${a.Type === 'Appeal' ? `<span class="muted">${esc(T('decide in the table below', 'नीचे की तालिका में तय करें'))}</span>` : `<button class="btn sm grey" data-res="${esc(a.AlertID)}" data-ty="${esc(a.Type)}">${esc(T('Resolve', 'हल'))}</button>`}</div>`).join('') : `<p class="muted">${esc(T('No open alerts.', 'कोई खुला अलर्ट नहीं।'))}</p>`;
+    $$('[data-res]').forEach(b => b.onclick = async () => {
+      let note = '';
+      if (b.dataset.ty === 'Missed pickup') { const o = await editor(T('Reply to the citizen', 'नागरिक को जवाब'), [{ k: 'note', label: T('What happened? The citizen will see this. (optional)', 'क्या हुआ? नागरिक को यह दिखेगा। (वैकल्पिक)') }], {}); if (!o) return; note = o.note || ''; }
+      try { await api('resolveAlert', { id: b.dataset.res, note }); tick(); } catch (e) { toast(e.message, true); }
+    });
     $('#iBins').innerHTML = live.bins.map(b => {
       const col = b.FillPct >= 80 ? 'var(--bad)' : b.FillPct >= 50 ? 'var(--warn)' : 'var(--green2)';
       return `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><div class="row"><b>${esc(b.Name)}</b><div class="sp"></div><span>${Math.round(b.FillPct)}%</span></div><div class="bar"><i style="width:${b.FillPct}%;background:${col}"></i></div><div class="row" style="margin-top:6px"><button class="btn sm alt" data-bin="${esc(b.BinID)}" data-d="20">+20%</button><button class="btn sm alt" data-bin="${esc(b.BinID)}" data-d="max">${esc(T('Fill up', 'भरें'))}</button><button class="btn sm grey" data-bin="${esc(b.BinID)}" data-d="0">${esc(T('Empty', 'खाली'))}</button></div></div>`;
@@ -1464,7 +1523,13 @@ VIEWS.incharge = async v => {
   async function follow() {
     try {
       const d = await api('followUps'); if (g !== S.gen || !$('#iFollow')) return;
-      $('#iFollow').innerHTML = d.list.length ? `<table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Household', 'घर'))}</th><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Sorting', 'अलगाव'))}</th><th>${esc(T('Action', 'कार्रवाई'))}</th></tr></thead><tbody>${d.list.slice(0, 15).map(x => `<tr><td>${fmtD(x.Time)} ${fmtT(x.Time)}</td><td>${x.HouseholdID ? '<b>' + esc(x.HouseholdID) + '</b> · ' + esc(x.Label) + (x.Colony ? ' · ' + esc(x.Colony) : '') : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${esc(x.BagID)}</td><td><span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></td><td>${x.Action === 'Fine' ? '<b>₹' + x.FineRs + '</b> ' + esc(x.Status) + (x.Status === 'Due' ? ` <button class="btn sm" data-fs="${esc(x.InspectID)}|Paid">${esc(T('Paid', 'चुकाया'))}</button> <button class="btn grey sm" data-fs="${esc(x.InspectID)}|Waived">${esc(T('Waive', 'माफ़'))}</button>` : '') : esc(x.Action === 'Warning' ? T('Warning', 'चेतावनी') : '')}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No poorly sorted bags yet.', 'अभी कोई खराब अलग बैग नहीं।'))}</p>`;
+      $('#iFollow').innerHTML = d.list.length ? `<table><thead><tr><th>${esc(T('Time', 'समय'))}</th><th>${esc(T('Household', 'घर'))}</th><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Sorting', 'अलगाव'))}</th><th>${esc(T('Action', 'कार्रवाई'))}</th></tr></thead><tbody>${d.list.slice(0, 15).map(x => `<tr><td>${fmtD(x.Time)} ${fmtT(x.Time)}</td><td>${x.HouseholdID ? '<b>' + esc(x.HouseholdID) + '</b> · ' + esc(x.Label) + (x.Colony ? ' · ' + esc(x.Colony) : '') : '<span class="muted">' + esc(T('Unregistered bag', 'अपंजीकृत बैग')) + '</span>'}</td><td>${esc(x.BagID)}</td><td><span class="tag ${x.Segregation.toLowerCase()}">${esc(x.Segregation)}</span></td><td>${x.Appeal === 'Open' ? '<div style="margin-bottom:4px"><b>' + esc(T('Appeal: ', 'अपील: ')) + '</b>' + esc(x.AppealMsg) + '<br><button class="btn sm" data-ap="' + esc(x.AppealID) + '|Accepted">' + esc(T('Accept', 'स्वीकार')) + '</button> <button class="btn grey sm" data-ap="' + esc(x.AppealID) + '|Rejected">' + esc(T('Reject', 'अस्वीकार')) + '</button></div>' : (x.Appeal ? '<div class="muted">' + esc(T('Appeal ', 'अपील ') + x.Appeal) + '</div>' : '')}${x.Action === 'Fine' ? '<b>₹' + x.FineRs + '</b> ' + esc(x.Status) + (x.Status === 'Due' ? ` <button class="btn sm" data-fs="${esc(x.InspectID)}|Paid">${esc(T('Paid', 'चुकाया'))}</button> <button class="btn grey sm" data-fs="${esc(x.InspectID)}|Waived">${esc(T('Waive', 'माफ़'))}</button>` : '') : esc(x.Action === 'Warning' ? T('Warning', 'चेतावनी') : '')}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No poorly sorted bags yet.', 'अभी कोई खराब अलग बैग नहीं।'))}</p>`;
+      $$('[data-ap]').forEach(b => b.onclick = async () => {
+        const [id, dec] = b.dataset.ap.split('|');
+        const o = await editor(dec === 'Accepted' ? T('Accept this appeal', 'अपील स्वीकार करें') : T('Reject this appeal', 'अपील अस्वीकार करें'), [{ k: 'note', label: T('Reason the citizen will see (optional)', 'कारण जो नागरिक को दिखेगा (वैकल्पिक)') }], {});
+        if (!o) return;
+        try { await api('decideAppeal', { id, decision: dec, note: o.note || '' }); follow(); tick(); } catch (e) { toast(e.message, true); }
+      });
       $$('[data-fs]').forEach(b => b.onclick = async () => { const [id, st] = b.dataset.fs.split('|'); try { await api('fineStatus', { id, status: st }); follow(); } catch (e) { toast(e.message, true); } });
     } catch (e) {}
   }
@@ -1757,6 +1822,18 @@ async function adminBags(el) {
       <div class="row" style="margin-top:12px"><button class="btn" id="bgMake">${esc(T('Make and print labels', 'बनाएँ और लेबल प्रिंट करें'))}</button></div><p class="muted" id="bgMsg"></p></div>
     <div class="card"><h3>${esc(T('Bag status', 'बैग की स्थिति'))}</h3><div id="bgStat" class="muted">…</div></div></div>
     <div class="card" style="margin-top:12px"><div class="row"><h3 style="margin:0">${esc(T('All bags', 'सभी बैग'))}</h3><div class="sp"></div><button class="btn grey sm" id="bgPrintOpen">🖨 ${esc(T('Print labels of unregistered bags', 'अपंजीकृत बैगों के लेबल प्रिंट करें'))}</button></div><div class="scroll" id="bgTable" style="margin-top:8px"></div></div>`;
+  el.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:12px"><h3>${esc(T('Demo for the judges', 'जजों के लिए डेमो'))}</h3><p class="muted">${esc(T('Plays the whole story for one household: two bags are registered, picked up and checked (one Partly, one Poor). Then open the Citizen app for that household to see the warning and the fine pop-up. Reset clears all bag, fine, appeal and report records and frees the bags.', 'एक घर के लिए पूरी कहानी चलाता है: दो बैग पंजीकृत, उठाए और जाँचे जाते हैं (एक कुछ-अलग, एक खराब)। फिर उस घर का नागरिक ऐप खोलें और चेतावनी व जुर्माना पॉप-अप देखें। रीसेट सारे बैग, जुर्माना, अपील और रिपोर्ट रिकॉर्ड मिटाकर बैग खाली कर देता है।'))}</p><div class="row"><div><label class="f">${esc(T('Household', 'घर'))}</label><select class="i" id="dsHh"></select></div></div><div class="row" style="margin-top:10px"><button class="btn" id="dsRun">▶ ${esc(T('Run the story', 'कहानी चलाएँ'))}</button><button class="btn grey" id="dsReset">${esc(T('Reset demo data', 'डेमो डेटा रीसेट'))}</button></div><p id="dsMsg" class="muted"></p></div>`);
+  try { const hs = (await api('list', { tab: 'Households' })).rows || []; $('#dsHh').innerHTML = hs.length ? hs.slice(0, 80).map(x => `<option value="${esc(x.HouseholdID)}">${esc(x.HouseholdID + ' · ' + x.Label)}</option>`).join('') : `<option value="">${esc(T('First household', 'पहला घर'))}</option>`; } catch (e) {}
+  $('#dsRun').onclick = async () => {
+    const b = $('#dsRun'); b.disabled = true; $('#dsMsg').textContent = T('Running…', 'चल रहा है…');
+    try { const r = await api('demoStory', { householdId: $('#dsHh').value }, { timeout: 60000 }); $('#dsMsg').innerHTML = esc(T('Done for ' + r.household.HouseholdID + ' · ' + r.household.Label + '. ' + r.results[0].Action + ' (' + r.results[0].Segregation + '), then ' + r.results[1].Action + (r.results[1].FineRs ? ' ₹' + r.results[1].FineRs : '') + ' (' + r.results[1].Segregation + '). Open the Citizen app for this household.', 'पूरा हुआ: ' + r.household.HouseholdID + '। अब इस घर का नागरिक ऐप खोलें।')); try { localStorage.removeItem('ww_seen_' + r.household.HouseholdID); } catch (e) {} await load(); }
+    catch (e) { $('#dsMsg').textContent = e.message; }
+    b.disabled = false;
+  };
+  $('#dsReset').onclick = async () => {
+    if (!confirm(T('Clear all demo bag, fine, appeal and report records?', 'सारे डेमो बैग, जुर्माना, अपील और रिपोर्ट रिकॉर्ड मिटाएँ?'))) return;
+    try { await api('clearDemo', {}, { timeout: 60000 }); $('#dsMsg').textContent = T('Demo data cleared. All bags are free.', 'डेमो डेटा मिट गया। सारे बैग खाली हैं।'); await load(); } catch (e) { $('#dsMsg').textContent = e.message; }
+  };
   if (API_OK(WEB_APP_URL)) {
     const link = location.origin + location.pathname + '?api=' + encodeURIComponent(WEB_APP_URL);
     el.insertAdjacentHTML('beforeend', `<div class="card" style="margin-top:12px"><h3>${esc(T('Open on another phone or computer', 'दूसरे फ़ोन या कंप्यूटर पर खोलें'))}</h3><p class="muted">${esc(T('Open this link once on the new device. It remembers the backend, so nobody pastes anything. Or put the address in config.js and upload it.', 'नए डिवाइस पर यह लिंक एक बार खोलें। यह बैकएंड याद रखता है, कुछ पेस्ट नहीं करना। या पता config.js में रखकर अपलोड करें।'))}</p><input class="i" id="shLink" readonly value="${esc(link)}"><div class="row" style="margin-top:8px"><button class="btn sm" id="shCopy">${esc(T('Copy link', 'लिंक कॉपी करें'))}</button></div></div>`);
@@ -1767,7 +1844,8 @@ async function adminBags(el) {
     const d = await api('bagList'); all = d.bags.slice().reverse();
     const reg = all.filter(b => b.HouseholdID).length;
     $('#bgStat').innerHTML = `<div style="font-size:28px;font-weight:800;color:var(--ink)">${reg} / ${all.length}</div>${esc(T('bags are registered to a household', 'बैग किसी घर से पंजीकृत हैं'))}`;
-    $('#bgTable').innerHTML = all.length ? `<table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th>${esc(T('Registered to', 'किसके नाम'))}</th><th>${esc(T('Date', 'तारीख'))}</th></tr></thead><tbody>${all.slice(0, 200).map(b => `<tr><td><b>${esc(b.BagID)}</b></td><td><span class="tag ${b.Stream.toLowerCase()}">${esc(b.Stream)}</span></td><td>${b.HouseholdID ? esc(b.HouseholdID + ' · ' + b.Label) : '<span class="muted">' + esc(T('Not registered', 'पंजीकृत नहीं')) + '</span>'}</td><td>${b.Registered ? fmtD(b.Registered) : ''}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No bags yet.', 'अभी कोई बैग नहीं।'))}</p>`;
+    $('#bgTable').innerHTML = all.length ? `<table><thead><tr><th>${esc(T('Bag', 'बैग'))}</th><th>${esc(T('Type', 'प्रकार'))}</th><th>${esc(T('Registered to', 'किसके नाम'))}</th><th>${esc(T('Date', 'तारीख'))}</th><th></th></tr></thead><tbody>${all.slice(0, 200).map(b => `<tr><td><b>${esc(b.BagID)}</b></td><td><span class="tag ${b.Stream.toLowerCase()}">${esc(b.Stream)}</span></td><td>${b.HouseholdID ? esc(b.HouseholdID + ' · ' + b.Label) : '<span class="muted">' + esc(T('Not registered', 'पंजीकृत नहीं')) + '</span>'}</td><td>${b.Registered ? fmtD(b.Registered) : ''}</td><td>${b.HouseholdID ? `<button class="btn grey sm" data-rel="${esc(b.BagID)}">${esc(T('Release', 'मुक्त करें'))}</button>` : ''}</td></tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(T('No bags yet.', 'अभी कोई बैग नहीं।'))}</p>`;
+    $$('[data-rel]').forEach(x => x.onclick = async () => { x.disabled = true; try { await api('releaseBag', { bagId: x.dataset.rel }); toast(T('Bag released: ', 'बैग मुक्त: ') + x.dataset.rel); await load(); } catch (e) { toast(e.message, true); x.disabled = false; } });
   }
   $('#bgMake').onclick = async () => {
     const btn = $('#bgMake'); btn.disabled = true;
