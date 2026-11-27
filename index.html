@@ -537,7 +537,7 @@ function truckLayer(map, opts) {
       have.add(t.TripID);
       let it = items[t.TripID];
       const loc = t.loc, now = performance.now();
-      const tgt = path ? (loc.dist != null ? loc.dist : path.cum[Math.max(0, Math.min(Number(loc.gi) >= 0 ? Number(loc.gi) : 0, path.cum.length - 1))]) : 0;
+      const tgt = path ? (loc.dist != null && loc.dist >= 0 ? loc.dist : path.cum[Math.max(0, Math.min(Number(loc.gi) >= 0 ? Number(loc.gi) : 0, path.cum.length - 1))]) : 0;
       if (!it) {
         const p0 = path ? posAt(path, tgt) : { ll: [loc.lat, loc.lng], i: 0 };
         const mk = L.marker(p0.ll, { icon: L.divIcon({ className: '', html: truckIconHtml(opts.label !== false), iconSize: [46, 46], iconAnchor: [23, 23] }), zIndexOffset: 1000, keyboard: false }).addTo(map);
@@ -548,6 +548,8 @@ function truckLayer(map, opts) {
         if (opts.trail && path) it.trail = L.polyline([], { color: '#1B5E20', weight: 6, opacity: .85, lineCap: 'round' }).addTo(map);
         if (opts.onFirst) opts.onFirst(it.ll, t);
       }
+      if (loc.t && it.lastT && loc.t < it.lastT) continue;
+      if (loc.t) it.lastT = loc.t;
       it.path = path; it.ping = now;
       it.spd = Math.max(0, Number(loc.spd) || 0); it.tgt = tgt; it.fallback = path ? null : [loc.lat, loc.lng];
       if (Math.abs(tgt - it.dist) > 500) it.dist = tgt;
@@ -670,6 +672,27 @@ function renderHeader() {
 
 /* ---------- router ---------- */
 const VIEWS = {};
+/* Keeps a running demo trip alive when the Driver screen is left (single-laptop presenting):
+   route() clears the Driver screen's timers, so this carries on moving and pinging until it is 15 m short of the next stop. */
+setInterval(function () {
+  const b = S.bg; if (!b) return; const D = b.D;
+  if (D.ended || D.mode !== 'demo' || Date.now() - D.hb < 2500) return;
+  if (Date.now() - D.hb > 30 * 60 * 1000) { S.bg = null; return; }
+  try {
+    const path = b.path;
+    if (D.moving && D.target != null) {
+      const tgi = path.stopGi[D.target], stopAt = Math.max(path.cum[path.stopGi[D.k]] || 0, path.cum[tgi] - 15);
+      const base = (num(S.st.config.AvgSpeedKmh, 20) / 3.6) * D.f;
+      const wob = Math.max(0.3, 0.85 + 0.3 * Math.sin(D.dist / 70) + 0.15 * Math.sin(D.dist / 23));
+      const spd = base * wob;
+      if (D.dist + spd * 0.5 >= stopAt) { D.dist = stopAt; D.moving = false; D.spd = 0; } else { D.dist += spd * 0.5; D.spd = (D.spd || spd) * 0.8 + spd * 0.2; }
+      while (D.gi < path.pts.length - 1 && path.cum[D.gi + 1] <= D.dist) D.gi++;
+    }
+    D.bgN = (D.bgN || 0) + 1;
+    if (D.bgN % 4 === 0) { const p = path.pts[Math.min(D.gi, path.pts.length - 1)]; api('ping', { tripId: b.trip.TripID, lat: p[0], lng: p[1], gi: D.gi, dist: Math.round(D.dist), seq: Date.now(), spd: D.moving ? D.spd : 0 }, { timeout: 8000 }).catch(() => {}); }
+  } catch (e) {}
+}, 500);
+
 async function route() {
   S.gen++;
   S.anims.forEach(a => { try { a.destroy(); } catch (e) {} }); S.anims = [];
@@ -1021,7 +1044,17 @@ async function citizenHome(v, d) {
     m.setView(hp, 16);
   }
   const g = S.gen; let nTick = 0;
+  let busy = false, curTrip = null, fastOK = true, fastBusy = false;
+  async function fast() {
+    if (!fastOK || fastBusy || !truck || !curTrip) return; fastBusy = true; const gg = S.gen;
+    try { const r = await api('locs', {}, { timeout: 6000 }); if (gg !== S.gen) return; if (!r || !r.loc) { fastOK = false; return; } const l = r.loc[curTrip.TripID]; if (l) { curTrip.loc = l; await truck.sync([curTrip]); } }
+    catch (e) { if (/unknown|action/i.test(String(e.message))) fastOK = false; } finally { fastBusy = false; }
+  }
   async function tick() {
+    if (busy) return; busy = true;
+    try { await tick0(); } finally { busy = false; }
+  }
+  async function tick0() {
     let live;
     try { live = await api('live', {}, { timeout: 12000 }); } catch (e) { return; }
     if (g !== S.gen) return;
@@ -1040,10 +1073,10 @@ async function citizenHome(v, d) {
     if (m && st.trip) {
       if (!drawnRoute) { const path = await getPath(st.trip.RouteID); if (g !== S.gen) return; drawnRoute = L.polyline(path.pts, { color: '#1E88E5', weight: 4, opacity: .7 }).addTo(m); }
       if (!truck) truck = truckLayer(m, { trail: true, onFirst: ll => { if (!m._fit) { m._fit = 1; m.fitBounds(L.latLngBounds([ll, [num(h.Lat), num(h.Lng)]]).pad(.4)); } } });
-      await truck.sync(st.trip.loc ? [st.trip] : []);
-    } else if (truck && m) { await truck.sync([]); }
+      curTrip = st.trip; await truck.sync(st.trip.loc ? [st.trip] : []);
+    } else if (truck && m) { curTrip = null; await truck.sync([]); }
   }
-  tick(); setTimer(tick, 2000);
+  tick(); setTimer(tick, 3000); setTimer(fast, 1000);
 }
 /* ============================ DRIVER ============================ */
 function loginGate(v, roles, titleEn, titleHi) {
@@ -1116,6 +1149,7 @@ async function driverTrip(v, trip, loc0) {
   const D = { trip, path, dist: 0, gi: 0, k: 0, mode: 'demo', f: 6, moving: false, arrived: true, done: new Set(), pk, spd: 0, timer: null, ended: false, here: 0 };
   if (loc0 && loc0.gi >= 0) { D.gi = loc0.gi; D.dist = path.cum[D.gi]; D.k = Math.max(0, path.stopGi.filter(g => g <= D.gi).length - 1); }
   pk.forEach(x => D.done.add(x.PlaceID));
+  D.hb = Date.now(); S.bg = { D, path, trip };
   const stops = path.stops, last = stops.length - 1;
   const route = ROUTE(trip.RouteID) || { Name: trip.RouteID };
   const isService = i => i > 0 && i < last;
@@ -1273,6 +1307,7 @@ async function driverTrip(v, trip, loc0) {
     clearInterval(D.timer);
     if (D.mode === 'demo') {
       D.timer = setInterval(() => { try {
+        D.hb = Date.now();
         const tgi = path.stopGi[D.target];
         const base = (num(S.st.config.AvgSpeedKmh, 20) / 3.6) * D.f;
         const rem0 = path.cum[tgi] - D.dist;
@@ -1298,7 +1333,7 @@ async function driverTrip(v, trip, loc0) {
       if (D.moving && hav(lat, lng, num(stops[D.target].Lat), num(stops[D.target].Lng)) < 40) arrive();
     }, e => toast(T('GPS error: ', 'GPS त्रुटि: ') + e.message, true), { enableHighAccuracy: true, maximumAge: 2000 });
   }
-  function pingNow() { if (D.mute && Date.now() < D.mute) return; const p = pos(); api('ping', { tripId: trip.TripID, lat: p[0], lng: p[1], gi: D.gi, spd: D.moving ? D.spd : 0 }, { timeout: 8000 }).catch(() => {}); }
+  function pingNow() { D.hb = Date.now(); if (D.mute && Date.now() < D.mute) return; const p = pos(); api('ping', { tripId: trip.TripID, lat: p[0], lng: p[1], gi: D.gi, dist: Math.round(D.dist), seq: Date.now(), spd: D.moving ? D.spd : 0 }, { timeout: 8000 }).catch(() => {}); }
   async function endTrip() {
     try { await api('endTrip', { tripId: trip.TripID }); D.ended = true; clearInterval(D.timer); if (watch != null) navigator.geolocation.clearWatch(watch); toast(T('Trip ended. Waiting at the MRF.', 'ट्रिप खत्म। एमआरएफ में प्रतीक्षा।')); renderNext(); }
     catch (e) { toast(e.message, true); }
