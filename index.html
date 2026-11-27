@@ -1097,7 +1097,7 @@ VIEWS.driver = async v => {
       <div class="row" style="margin-top:14px"><button class="btn big" id="dStart">${esc(T('Start trip', 'ट्रिप शुरू करें'))}</button></div>
       <p class="muted" id="dMsg" style="margin-top:8px"></p></div>
     <div class="card"><h2>${esc(T('Trips on the road', 'सड़क पर चल रही ट्रिप'))}</h2>
-      ${running.length ? running.map(t => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.kg)} kg · ${t.pickups} ${esc(T('pickups', 'पिकअप'))}</div></div><div class="sp"></div><button class="btn alt sm" data-resume="${esc(t.TripID)}">${esc(T('Resume', 'जारी रखें'))}</button></div>`).join('') : `<p class="muted">${esc(T('No trip is running.', 'कोई ट्रिप नहीं चल रही।'))}</p>`}
+      ${running.length ? running.map(t => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${esc(t.TripID)}</b> · ${esc((ROUTE(t.RouteID) || {}).Name || t.RouteID)}<div class="muted">${esc((VEH(t.VehicleID) || {}).Name || '')} · ${f1(t.kg)} kg · ${t.pickups} ${esc(T('pickups', 'पिकअप'))}</div></div><div class="sp"></div><button class="btn alt sm" data-resume="${esc(t.TripID)}">${esc(T('Resume', 'जारी रखें'))}</button><button class="btn bad sm" style="margin-left:6px" data-end="${esc(t.TripID)}">${esc(T('End', 'खत्म'))}</button></div>`).join('') : `<p class="muted">${esc(T('No trip is running.', 'कोई ट्रिप नहीं चल रही।'))}</p>`}
     </div></div>`;
   const syncRoute = () => { const x = VEH($('#dVeh').value); if (x && x.RouteID) $('#dRoute').value = x.RouteID; };
   $('#dVeh').onchange = syncRoute; syncRoute();
@@ -1105,6 +1105,10 @@ VIEWS.driver = async v => {
     try { const d = await api('startTrip', { routeId: $('#dRoute').value, vehicleId: $('#dVeh').value }); await driverTrip(v, d.trip); }
     catch (e) { $('#dMsg').textContent = e.message; }
   };
+  $$('[data-end]').forEach(b => b.onclick = async () => {
+    if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = T('Sure?', 'पक्का?'); setTimeout(() => { delete b.dataset.sure; b.textContent = T('End', 'खत्म'); }, 4000); return; }
+    try { await api('endTrip', { tripId: b.dataset.end }); toast(T('Trip ended.', 'ट्रिप खत्म।')); route(); } catch (e) { toast(e.message, true); }
+  });
   $$('[data-resume]').forEach(b => b.onclick = async () => {
     const t = running.find(x => x.TripID === b.dataset.resume);
     try { await driverTrip(v, { TripID: t.TripID, RouteID: t.RouteID, VehicleID: t.VehicleID, Status: 'Running' }, t.loc); } catch (e) { toast(e.message, true); }
