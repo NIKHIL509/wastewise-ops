@@ -1165,6 +1165,7 @@ async function driverTrip(v, trip, loc0) {
     </div>
     <div class="card dmap"><div id="dMap" class="map tall"></div>
       <div class="row" style="margin-top:10px">
+        <button class="btn bad sm" id="bEndNow">${esc(T('End trip now', 'ट्रिप अभी खत्म करें'))}</button>
         <button class="btn grey sm" id="bMute">${esc(T('Simulate lost signal (30 s)', 'सिग्नल जाना दिखाएँ (30 सेकंड)'))}</button>
         <div class="seg" style="max-width:260px"><button id="mDemo" class="on good">${esc(T('Demo drive', 'डेमो ड्राइव'))}</button><button id="mGps">${esc(T('Real GPS', 'असली GPS'))}</button></div>
         <label class="muted" id="fWrap">${esc(T('Demo speed', 'डेमो गति'))} <select id="dF" class="i" style="width:auto;min-height:34px;padding:4px 8px"><option value="3">×3</option><option value="6" selected>×6</option><option value="12">×12</option><option value="25">×25</option></select></label>
@@ -1340,9 +1341,12 @@ async function driverTrip(v, trip, loc0) {
   }
   $('#mDemo').onclick = () => { D.mode = 'demo'; $('#mDemo').classList.add('on', 'good'); $('#mGps').classList.remove('on', 'good'); $('#fWrap').classList.remove('hide'); if (watch != null) { navigator.geolocation.clearWatch(watch); watch = null; } };
   $('#mGps').onclick = () => { D.mode = 'gps'; $('#mGps').classList.add('on', 'good'); $('#mDemo').classList.remove('on', 'good'); $('#fWrap').classList.add('hide'); clearInterval(D.timer); if (D.moving) renderNext(); startGps(); };
+  $('#bEndNow').onclick = () => { const b = $('#bEndNow'); if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = T('Tap again to end', 'खत्म करने के लिए फिर दबाएँ'); setTimeout(() => { delete b.dataset.sure; b.textContent = T('End trip now', 'ट्रिप अभी खत्म करें'); }, 4000); return; } endTrip(); };
   $('#bMute').onclick = () => { D.mute = Date.now() + 30000; toast(T('Pings paused for 30 seconds. Watch the in-charge screen.', '30 सेकंड के लिए पिंग बंद। प्रभारी स्क्रीन देखें।')); };
   $('#dF').onchange = e => { D.f = num(e.target.value, 6); };
   setTimer(pingNow, 2000);
+  /* keep the phone awake so pings and the demo drive are not paused when the screen dims */
+  (function wl() { try { if (navigator.wakeLock) { const g = S.gen; navigator.wakeLock.request('screen').then(l => { S.timers.push(setInterval(() => { if (g !== S.gen) { try { l.release(); } catch (e) {} } }, 1000)); }).catch(() => {}); document.addEventListener('visibilitychange', function f() { if (S.gen !== g0) { document.removeEventListener('visibilitychange', f); return; } if (document.visibilityState === 'visible') { pingNow(); navigator.wakeLock.request('screen').catch(() => {}); } }); } } catch (e) {} const g0 = S.gen; })();
   moveTruck(); renderNext(); pingNow();
 }
 
